@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
+  <metadata>
+    <id>Vtex.RabbitMQ</id>
+    <version>$version$</version>
+    <title>VTEX .NET RabbitMQ Abstraction Library</title>
+    <authors>VTEX Lab</authors>
+    <owners>VTEX</owners>
+    <projectUrl>https://github.com/vtex/rabbitmq-abstraction</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Library for RabbitMQ management, consumption and workflow</description>
+    <copyright>Copyright VTEX 2015</copyright>
+    <tags>vtex rabbitmq queue amqp worker</tags>
+    <dependencies>
+      <dependency id="RabbitMQ.Client" version="3.5.4" />
+      <dependency id="Newtonsoft.Json" version="7.0.1" />
+    </dependencies>
+    <releaseNotes></releaseNotes>
+  </metadata>
+
+  <files>
+    <file src="bin\Release\Vtex.RabbitMQ.dll" target="lib\net45" />
+    <file src="bin\Release\Vtex.RabbitMQ.pdb" target="lib\net45" />
+  </files>
+</package>

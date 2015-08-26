@@ -1,0 +1,94 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{39962C29-4756-47A4-A843-2CCFB3A13B99}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Vtex.RabbitMQ</RootNamespace>
+    <AssemblyName>Vtex.RabbitMQ</AssemblyName>
+    <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Newtonsoft.Json, Version=7.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\packages\Newtonsoft.Json.7.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="RabbitMQ.Client">
+      <HintPath>..\packages\RabbitMQ.Client.3.5.4\lib\net40\RabbitMQ.Client.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="ConsumerCountManager.cs" />
+    <Compile Include="DeserializationRejectionMessage.cs" />
+    <Compile Include="ExceptionHandlingStrategy.cs" />
+    <Compile Include="Exceptions\DeserializationException.cs" />
+    <Compile Include="Exceptions\RejectionException.cs" />
+    <Compile Include="Exceptions\Workflow\BaseQueuingException.cs" />
+    <Compile Include="Exceptions\Workflow\QueuingDiscardException.cs" />
+    <Compile Include="Exceptions\Workflow\QueuingRequeueException.cs" />
+    <Compile Include="Exceptions\Workflow\QueuingRetryException.cs" />
+    <Compile Include="Interfaces\IConsumerCountManager.cs" />
+    <Compile Include="Logging\Interfaces\ILogger.cs" />
+    <Compile Include="ProcessingWorkers\AbstractAdvancedMessageProcessingWorker.cs" />
+    <Compile Include="ProcessingWorkers\AbstractSimpleMessageProcessingWorker.cs" />
+    <Compile Include="ProcessingWorkers\AdvancedAsyncMessageProcessingWorker.cs" />
+    <Compile Include="ProcessingWorkers\AdvancedMessageProcessingWorker.cs" />
+    <Compile Include="ProcessingWorkers\SimpleAsyncMessageProcessingWorker.cs" />
+    <Compile Include="ProcessingWorkers\SimpleMessageProcessingWorker.cs" />
+    <Compile Include="Serialization\Interfaces\ISerializer.cs" />
+    <Compile Include="Serialization\JsonSerializer.cs" />
+    <Compile Include="MessageDeserializationRejectionHandler.cs" />
+    <Compile Include="Messaging\Interfaces\IMessageFeedbackSender.cs" />
+    <Compile Include="Messaging\Interfaces\IMessageProcessingWorker.cs" />
+    <Compile Include="Messaging\Interfaces\IMessageRejectionHandler.cs" />
+    <Compile Include="Messaging\Interfaces\IQueueClient.cs" />
+    <Compile Include="Messaging\Interfaces\IQueueConsumer.cs" />
+    <Compile Include="Messaging\Interfaces\IQueueConsumerWorker.cs" />
+    <Compile Include="Messaging\RabbitMQClient.cs" />
+    <Compile Include="Messaging\RabbitMQConnectionPool.cs" />
+    <Compile Include="Messaging\RabbitMQConsumer.cs" />
+    <Compile Include="Messaging\RabbitMQConsumerWorker.cs" />
+    <Compile Include="Messaging\RabbitMQMessageFeedbackSender.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="QueueInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

@@ -63,6 +63,8 @@
     <Compile Include="ProcessingWorkers\AdvancedMessageProcessingWorker.cs" />
     <Compile Include="ProcessingWorkers\SimpleAsyncMessageProcessingWorker.cs" />
     <Compile Include="ProcessingWorkers\SimpleMessageProcessingWorker.cs" />
+    <Compile Include="QueueBinding.cs" />
+    <Compile Include="QueueStructureInitializer.cs" />
     <Compile Include="Serialization\Interfaces\ISerializer.cs" />
     <Compile Include="Serialization\JsonSerializer.cs" />
     <Compile Include="MessageDeserializationRejectionHandler.cs" />

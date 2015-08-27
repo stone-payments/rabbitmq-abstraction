@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.RegularExpressions;
 using RabbitMQ.Client;
 using Vtex.RabbitMQ.Interfaces;
 using Vtex.RabbitMQ.Logging.Interfaces;
@@ -17,6 +18,35 @@ namespace Vtex.RabbitMQ.Messaging
         private readonly ILogger _logger;
 
         private readonly RabbitMQConnectionPool _connectionPool;
+
+        private readonly Regex _connectionStringPattern =
+            new Regex(@"^(?<user>.+):(?<password>.+)@(?<host>.+):(?<port>[0-9]{1,5})/(?<vhost>.+)$");
+
+        /// <summary>
+        ///
+        /// </summary>
+        /// <param name="connectionString">Format {user}:{password}@{host}:{port}/{virtualHost}</param>
+        /// <param name="serializer"></param>
+        /// <param name="logger"></param>
+        public RabbitMQClient(string connectionString, ISerializer serializer = null, ILogger logger = null)
+        {
+            var match = _connectionStringPattern.Match(connectionString);
+            if (!match.Success)
+                throw new ArgumentException("Expected format: {user}:{password}@{host}:{port}/{virtualHost}", "connectionString");
+
+            var connectionFactory = new ConnectionFactory
+            {
+                HostName = match.Groups["host"].Value,
+                Port = int.Parse(match.Groups["port"].Value),
+                UserName = match.Groups["user"].Value,
+                Password = match.Groups["password"].Value,
+                VirtualHost = match.Groups["vhost"].Value,
+            };
+
+            _connectionPool = new RabbitMQConnectionPool(connectionFactory);
+            _serializer = serializer ?? new JsonSerializer();
+            _logger = logger;
+        }
 
         public RabbitMQClient(string hostName, int port, string userName, string password, string virtualHost,
             ISerializer serializer = null, ILogger logger = null)

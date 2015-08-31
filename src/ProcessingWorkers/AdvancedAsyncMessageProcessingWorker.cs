@@ -10,18 +10,20 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
     {
         private readonly Func<T, CancellationToken, Task> _callbackFunc;
 
-        private readonly CancellationToken _cancellationToken;
+        private readonly CancellationTokenSource _cancellationTokenSource;
 
-        public AdvancedAsyncMessageProcessingWorker(IQueueConsumer consumer, Func<T, CancellationToken, Task> callbackFunc, CancellationToken cancellationToken,
+        public AdvancedAsyncMessageProcessingWorker(IQueueConsumer consumer, 
+            Func<T, CancellationToken, Task> callbackFunc, CancellationTokenSource cancellationTokenSource,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue, 
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, bool autoStartup = true)
             : base(consumer, exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds, autoStartup)
         {
             _callbackFunc = callbackFunc;
-            _cancellationToken = cancellationToken;
+            _cancellationTokenSource = cancellationTokenSource;
         }
 
-        public AdvancedAsyncMessageProcessingWorker(IQueueClient queueClient, string queueName, Func<T, CancellationToken, Task> callbackFunc, CancellationToken cancellationToken,
+        public AdvancedAsyncMessageProcessingWorker(IQueueClient queueClient, string queueName, 
+            Func<T, CancellationToken, Task> callbackFunc, CancellationTokenSource cancellationTokenSource,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue, 
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, ConsumerCountManager consumerCountManager = null, 
             IMessageRejectionHandler messageRejectionHandler = null, bool autoStartup = true)
@@ -29,14 +31,14 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
             consumerCountManager, messageRejectionHandler, autoStartup)
         {
             _callbackFunc = callbackFunc;
-            _cancellationToken = cancellationToken;
+            _cancellationTokenSource = cancellationTokenSource;
         }
 
         protected override bool TryInvoke(T message, List<Exception> exceptions)
         {
             try
             {
-                _callbackFunc(message, _cancellationToken).Wait(_cancellationToken);
+                _callbackFunc(message, _cancellationTokenSource.Token).Wait(_cancellationTokenSource.Token);
 
                 return true;
             }

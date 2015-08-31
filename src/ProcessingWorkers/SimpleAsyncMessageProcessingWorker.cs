@@ -10,31 +10,31 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
     {
         private readonly Func<T, CancellationToken, Task> _callbackFunc;
 
-        private readonly CancellationToken _cancellationToken;
+        private readonly CancellationTokenSource _cancellationTokenSource;
 
         public SimpleAsyncMessageProcessingWorker(IQueueConsumer consumer, Func<T, CancellationToken, Task> callbackFunc, 
-            CancellationToken cancellationToken, bool autoStartup = true) 
+            CancellationTokenSource cancellationTokenSource, bool autoStartup = true) 
             : base(consumer, autoStartup)
         {
             _callbackFunc = callbackFunc;
-            _cancellationToken = cancellationToken;
+            _cancellationTokenSource = cancellationTokenSource;
         }
 
         public SimpleAsyncMessageProcessingWorker(IQueueClient queueClient, string queueName, 
-            Func<T, CancellationToken, Task> callbackFunc, CancellationToken cancellationToken, 
+            Func<T, CancellationToken, Task> callbackFunc, CancellationTokenSource cancellationTokenSource, 
             IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, 
             bool autoStartup = true) 
             : base(queueClient, queueName, consumerCountManager, messageRejectionHandler, autoStartup)
         {
             _callbackFunc = callbackFunc;
-            _cancellationToken = cancellationToken;
+            _cancellationTokenSource = cancellationTokenSource;
         }
 
         public async override void OnMessage(T message, IMessageFeedbackSender feedbackSender)
         {
             try
             {
-                await _callbackFunc(message, _cancellationToken);
+                await _callbackFunc(message, _cancellationTokenSource.Token);
                 feedbackSender.Ack();
             }
             catch (Exception)

@@ -56,7 +56,7 @@
     <Compile Include="Exceptions\Workflow\QueuingRequeueException.cs" />
     <Compile Include="Exceptions\Workflow\QueuingRetryException.cs" />
     <Compile Include="Interfaces\IConsumerCountManager.cs" />
-    <Compile Include="Logging\Interfaces\ILogger.cs" />
+    <Compile Include="Logging\Interfaces\IErrorLogger.cs" />
     <Compile Include="ProcessingWorkers\AbstractAdvancedMessageProcessingWorker.cs" />
     <Compile Include="ProcessingWorkers\AbstractSimpleMessageProcessingWorker.cs" />
     <Compile Include="ProcessingWorkers\AdvancedAsyncMessageProcessingWorker.cs" />

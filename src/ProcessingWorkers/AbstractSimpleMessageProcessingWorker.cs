@@ -8,13 +8,13 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
     {
         protected IQueueConsumer Consumer;
 
-        protected IQueueClient QueueClient;
+        protected readonly IQueueClient QueueClient;
 
-        protected string QueueName;
+        protected readonly string QueueName;
 
-        protected IConsumerCountManager ConsumerCountManager;
+        protected readonly IConsumerCountManager ConsumerCountManager;
 
-        protected IMessageRejectionHandler MessageRejectionHandler;
+        protected readonly IMessageRejectionHandler MessageRejectionHandler;
 
         protected AbstractSimpleMessageProcessingWorker(IQueueConsumer consumer, bool autoStartup = true)
         {
@@ -46,7 +46,7 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
         {
             if (Consumer == null)
             {
-                Consumer = QueueClient.GetConsumer<T>(QueueName, ConsumerCountManager, this,
+                Consumer = QueueClient.GetConsumer(QueueName, ConsumerCountManager, this,
                     MessageRejectionHandler);
             }
 

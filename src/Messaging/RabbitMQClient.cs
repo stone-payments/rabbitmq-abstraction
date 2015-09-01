@@ -32,7 +32,7 @@ namespace Vtex.RabbitMQ.Messaging
         {
             var match = _connectionStringPattern.Match(connectionString);
             if (!match.Success)
-                throw new ArgumentException("Expected format: {user}:{password}@{host}:{port}/{virtualHost}", "connectionString");
+                throw new ArgumentException("Expected format: {user}:{password}@{host}:{port}/{virtualHost}", nameof(connectionString));
 
             var connectionFactory = new ConnectionFactory
             {
@@ -260,10 +260,7 @@ namespace Vtex.RabbitMQ.Messaging
 
         public void Dispose()
         {
-            if (_connectionPool != null)
-            {
-                _connectionPool.Dispose();
-            }
+            _connectionPool?.Dispose();
         }
     }
 }

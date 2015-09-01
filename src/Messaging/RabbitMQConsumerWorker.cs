@@ -22,10 +22,7 @@ namespace Vtex.RabbitMQ.Messaging
 
         public TimeSpan CheckAliveFrequency { get; set; }
 
-        public bool ModelIsClosed
-        {
-            get { return _model.IsClosed; }
-        }
+        public bool ModelIsClosed => _model.IsClosed;
 
         public RabbitMQConsumerWorker(IConnection connection, string queueName, 
             IMessageProcessingWorker<T> messageProcessingWorker, IMessageRejectionHandler messageRejectionHandler, 

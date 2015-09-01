@@ -109,11 +109,8 @@ namespace Vtex.RabbitMQ.Messaging
                             }
                             catch (Exception exception)
                             {
-                                if (_errorLogger != null)
-                                {
-                                    _errorLogger.LogError("RabbitMQ.AdvancedConsumer", exception.ToString(),
+                                _errorLogger?.LogError("RabbitMQ.AdvancedConsumer", exception.ToString(),
                                     "QueueName", _queueName);
-                                }
                             }
                             finally
                             {
@@ -159,7 +156,7 @@ namespace Vtex.RabbitMQ.Messaging
             QueueInfo queueInfo = null;
             using (var model = _connectionPool.GetConnection().CreateModel())
             {
-                queueInfo = new QueueInfo()
+                queueInfo = new QueueInfo
                 {
                     QueueName = _queueName,
                     ConsumerCount = GetConsumerCount(model),

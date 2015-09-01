@@ -20,7 +20,7 @@ namespace Vtex.RabbitMQ.Tests
 
             using (var queueClient = new RabbitMQClient(connectionFactory))
             {
-                var queueName = String.Format("IntegratedTestQueue_{0}", Guid.NewGuid());
+                var queueName = $"IntegratedTestQueue_{Guid.NewGuid()}";
 
                 queueClient.EnsureQueueExists(queueName, autoDelete:true);
 
@@ -58,7 +58,7 @@ namespace Vtex.RabbitMQ.Tests
 
             using (var queueClient = new RabbitMQClient(connectionFactory))
             {
-                var queueName = String.Format("IntegratedTestQueue_{0}", Guid.NewGuid());
+                var queueName = $"IntegratedTestQueue_{Guid.NewGuid()}";
 
                 queueClient.EnsureQueueExists(queueName);
 
@@ -95,7 +95,7 @@ namespace Vtex.RabbitMQ.Tests
 
             using (var queueClient = new RabbitMQClient(connectionFactory))
             {
-                var queueName = String.Format("IntegratedTestQueue_{0}", Guid.NewGuid());
+                var queueName = $"IntegratedTestQueue_{Guid.NewGuid()}";
 
                 queueClient.EnsureQueueExists(queueName, autoDelete: true);
 
@@ -133,7 +133,7 @@ namespace Vtex.RabbitMQ.Tests
 
             using (var queueClient = new RabbitMQClient(connectionFactory))
             {
-                var queueName = String.Format("IntegratedTestQueue_{0}", Guid.NewGuid());
+                var queueName = $"IntegratedTestQueue_{Guid.NewGuid()}";
 
                 queueClient.EnsureQueueExists(queueName);
 

@@ -9,9 +9,9 @@ configuration = if args.debug then 'Debug' else 'Release'
 gulp.task 'default', ['build']
 
 gulp.task 'build', ['restore'], ->
-  dotnet.build configuration, ['Clean', 'Build']
+  dotnet.build configuration, ['Clean', 'Build'], toolsVersion: 14.0
 
-gulp.task 'clean', -> dotnet.build configuration, ['Clean']
+gulp.task 'clean', -> dotnet.build configuration, ['Clean'], toolsVersion: 14.0
 
 gulp.task 'restore', -> dotnet.exec 'nuget restore'
 

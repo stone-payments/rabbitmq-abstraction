@@ -17,7 +17,7 @@ namespace Vtex.RabbitMQ.Messaging
 
         private readonly IErrorLogger _errorLogger;
 
-        private readonly RabbitMQConnectionPool _connectionPool;
+        private readonly IRabbitMQConnectionPool _connectionPool;
 
         private readonly Regex _connectionStringPattern =
             new Regex(@"^(?<user>.+):(?<password>.+)@(?<host>.+):(?<port>[0-9]{1,5})/(?<vhost>.+)$");
@@ -72,7 +72,7 @@ namespace Vtex.RabbitMQ.Messaging
             _errorLogger = errorLogger;
         }
 
-        public RabbitMQClient(RabbitMQConnectionPool connectionPool, ISerializer serializer = null, IErrorLogger errorLogger = null)
+        public RabbitMQClient(IRabbitMQConnectionPool connectionPool, ISerializer serializer = null, IErrorLogger errorLogger = null)
         {
             _connectionPool = connectionPool;
             _serializer = serializer ?? new JsonSerializer();

@@ -2,10 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using RabbitMQ.Client;
+using Vtex.RabbitMQ.Messaging.Interfaces;
 
 namespace Vtex.RabbitMQ.Messaging
 {
-    public class RabbitMQConnectionPool : IDisposable
+    public class RabbitMQConnectionPool : IRabbitMQConnectionPool
     {
         private readonly ConnectionFactory _connectionFactory;
 

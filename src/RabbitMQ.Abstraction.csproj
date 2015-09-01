@@ -57,6 +57,7 @@
     <Compile Include="Exceptions\Workflow\QueuingRetryException.cs" />
     <Compile Include="Interfaces\IConsumerCountManager.cs" />
     <Compile Include="Logging\Interfaces\IErrorLogger.cs" />
+    <Compile Include="Messaging\Interfaces\IRabbitMQConnectionPool.cs" />
     <Compile Include="ProcessingWorkers\AbstractAdvancedMessageProcessingWorker.cs" />
     <Compile Include="ProcessingWorkers\AbstractSimpleMessageProcessingWorker.cs" />
     <Compile Include="ProcessingWorkers\AdvancedAsyncMessageProcessingWorker.cs" />

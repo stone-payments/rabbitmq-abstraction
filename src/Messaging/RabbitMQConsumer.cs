@@ -12,7 +12,7 @@ namespace Vtex.RabbitMQ.Messaging
 {
     public class RabbitMQConsumer<T> : IQueueConsumer where T : class
     {
-        private readonly RabbitMQConnectionPool _connectionPool;
+        private readonly IRabbitMQConnectionPool _connectionPool;
 
         private readonly string _queueName;
 
@@ -33,7 +33,7 @@ namespace Vtex.RabbitMQ.Messaging
         private volatile int _scalingAmount;
         private volatile int _consumerWorkersCount;
 
-        public RabbitMQConsumer(RabbitMQConnectionPool connectionPool, string queueName, 
+        public RabbitMQConsumer(IRabbitMQConnectionPool connectionPool, string queueName, 
             IMessageProcessingWorker<T> messageProcessingWorker, ISerializer serializer = null, IErrorLogger errorLogger = null, 
             IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
         {

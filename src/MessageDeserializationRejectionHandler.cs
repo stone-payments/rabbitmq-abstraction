@@ -28,7 +28,7 @@ namespace Vtex.RabbitMQ
             _serializer = serializer ?? new JsonSerializer();
         }
 
-        public MessageDeserializationRejectionHandler(RabbitMQConnectionPool connectionPool, string exchangeName = "",
+        public MessageDeserializationRejectionHandler(IRabbitMQConnectionPool connectionPool, string exchangeName = "",
             string rejectionRoutingKey = "RejectedMessages", ISerializer serializer = null)
         {
             _rabbitMQClient = new RabbitMQClient(connectionPool, serializer);

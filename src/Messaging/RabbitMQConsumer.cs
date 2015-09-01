@@ -18,7 +18,7 @@ namespace Vtex.RabbitMQ.Messaging
 
         private readonly ISerializer _serializer;
 
-        private readonly ILogger _logger;
+        private readonly IErrorLogger _errorLogger;
 
         private readonly IMessageProcessingWorker<T> _messageProcessingWorker;
 
@@ -34,13 +34,13 @@ namespace Vtex.RabbitMQ.Messaging
         private volatile int _consumerWorkersCount;
 
         public RabbitMQConsumer(RabbitMQConnectionPool connectionPool, string queueName, 
-            IMessageProcessingWorker<T> messageProcessingWorker, ISerializer serializer = null, ILogger logger = null, 
+            IMessageProcessingWorker<T> messageProcessingWorker, ISerializer serializer = null, IErrorLogger errorLogger = null, 
             IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
         {
             _connectionPool = connectionPool;
             _queueName = queueName;
             _serializer = serializer ?? new JsonSerializer();
-            _logger = logger;
+            _errorLogger = errorLogger;
             _messageProcessingWorker = messageProcessingWorker;
             _consumerCountManager = consumerCountManager ?? new ConsumerCountManager();
             _messageRejectionHandler = messageRejectionHandler ?? new MessageDeserializationRejectionHandler(connectionPool);
@@ -109,9 +109,9 @@ namespace Vtex.RabbitMQ.Messaging
                             }
                             catch (Exception exception)
                             {
-                                if (_logger != null)
+                                if (_errorLogger != null)
                                 {
-                                    _logger.Error("RabbitMQ.AdvancedConsumer", exception.ToString(),
+                                    _errorLogger.LogError("RabbitMQ.AdvancedConsumer", exception.ToString(),
                                     "QueueName", _queueName);
                                 }
                             }

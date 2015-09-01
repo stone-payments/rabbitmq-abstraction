@@ -15,7 +15,7 @@ namespace Vtex.RabbitMQ.Messaging
     {
         private readonly ISerializer _serializer;
 
-        private readonly ILogger _logger;
+        private readonly IErrorLogger _errorLogger;
 
         private readonly RabbitMQConnectionPool _connectionPool;
 
@@ -27,8 +27,8 @@ namespace Vtex.RabbitMQ.Messaging
         /// </summary>
         /// <param name="connectionString">Format {user}:{password}@{host}:{port}/{virtualHost}</param>
         /// <param name="serializer"></param>
-        /// <param name="logger"></param>
-        public RabbitMQClient(string connectionString, ISerializer serializer = null, ILogger logger = null)
+        /// <param name="errorLogger"></param>
+        public RabbitMQClient(string connectionString, ISerializer serializer = null, IErrorLogger errorLogger = null)
         {
             var match = _connectionStringPattern.Match(connectionString);
             if (!match.Success)
@@ -45,11 +45,11 @@ namespace Vtex.RabbitMQ.Messaging
 
             _connectionPool = new RabbitMQConnectionPool(connectionFactory);
             _serializer = serializer ?? new JsonSerializer();
-            _logger = logger;
+            _errorLogger = errorLogger;
         }
 
         public RabbitMQClient(string hostName, int port, string userName, string password, string virtualHost,
-            ISerializer serializer = null, ILogger logger = null)
+            ISerializer serializer = null, IErrorLogger errorLogger = null)
         {
             var connectionFactory = new ConnectionFactory
             {
@@ -62,21 +62,21 @@ namespace Vtex.RabbitMQ.Messaging
 
             _connectionPool = new RabbitMQConnectionPool(connectionFactory);
             _serializer = serializer ?? new JsonSerializer();
-            _logger = logger;
+            _errorLogger = errorLogger;
         }
 
-        public RabbitMQClient(ConnectionFactory connectionFactory, ISerializer serializer = null, ILogger logger = null)
+        public RabbitMQClient(ConnectionFactory connectionFactory, ISerializer serializer = null, IErrorLogger errorLogger = null)
         {
             _connectionPool = new RabbitMQConnectionPool(connectionFactory);
             _serializer = serializer ?? new JsonSerializer();
-            _logger = logger;
+            _errorLogger = errorLogger;
         }
 
-        public RabbitMQClient(RabbitMQConnectionPool connectionPool, ISerializer serializer = null, ILogger logger = null)
+        public RabbitMQClient(RabbitMQConnectionPool connectionPool, ISerializer serializer = null, IErrorLogger errorLogger = null)
         {
             _connectionPool = connectionPool;
             _serializer = serializer ?? new JsonSerializer();
-            _logger = logger;
+            _errorLogger = errorLogger;
         }
 
         public void Publish<T>(string exchangeName, string routingKey, T content)
@@ -252,7 +252,7 @@ namespace Vtex.RabbitMQ.Messaging
                 connectionPool: _connectionPool,
                 queueName: queueName,
                 serializer: _serializer,
-                logger: _logger,
+                errorLogger: _errorLogger,
                 messageProcessingWorker: messageProcessingWorker,
                 consumerCountManager: consumerCountManager,
                 messageRejectionHandler: messageRejectionHandler);

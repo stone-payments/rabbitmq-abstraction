@@ -14,11 +14,13 @@ namespace Vtex.RabbitMQ
         private readonly uint _messagesPerConsumerWorkerRatio;
 
         public ConsumerCountManager(uint minConcurrentConsumers = 1, uint maxConcurrentConsumers = 10, 
-            uint messagesPerConsumerWorkerRatio = 10)
+            uint messagesPerConsumerWorkerRatio = 10, double autoscaleFrequencyMilliseconds = 10000)
         {
             _minConcurrentConsumers = minConcurrentConsumers;
             _maxConcurrentConsumers = maxConcurrentConsumers;
             _messagesPerConsumerWorkerRatio = messagesPerConsumerWorkerRatio;
+
+            AutoscaleFrequency = TimeSpan.FromMilliseconds(autoscaleFrequencyMilliseconds);
         }
 
         public int GetScalingAmount(QueueInfo queueInfo, int consumersRunningCount)

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 
 namespace Vtex.RabbitMQ.Messaging.Interfaces
 {
@@ -6,7 +7,7 @@ namespace Vtex.RabbitMQ.Messaging.Interfaces
     {
         bool ModelIsClosed { get; }
 
-        void DoConsume();
+        Task DoConsumeAsync();
 
         void Ack(ulong deliveryTag);
 

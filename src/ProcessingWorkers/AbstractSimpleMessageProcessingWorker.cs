@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using Vtex.RabbitMQ.Interfaces;
 using Vtex.RabbitMQ.Messaging.Interfaces;
 
@@ -16,33 +17,22 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
 
         protected readonly IMessageRejectionHandler MessageRejectionHandler;
 
-        protected AbstractSimpleMessageProcessingWorker(IQueueConsumer consumer, bool autoStartup = true)
+        protected AbstractSimpleMessageProcessingWorker(IQueueConsumer consumer)
         {
             Consumer = consumer;
-
-            if (autoStartup)
-            {
-                Start();
-            }
         }
 
         protected AbstractSimpleMessageProcessingWorker(IQueueClient queueClient, string queueName,
-            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null,
-            bool autoStartup = true)
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
         {
             QueueClient = queueClient;
             QueueName = queueName;
 
             ConsumerCountManager = consumerCountManager ?? new ConsumerCountManager();
             MessageRejectionHandler = messageRejectionHandler ?? new MessageDeserializationRejectionHandler(QueueClient);
-
-            if (autoStartup)
-            {
-                Start();
-            }
         }
 
-        public void Start()
+        public Task StartAsync()
         {
             if (Consumer == null)
             {
@@ -50,7 +40,7 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
                     MessageRejectionHandler);
             }
 
-            Consumer.Start();
+            return Consumer.StartAsync();
         }
 
         public void Stop()
@@ -67,6 +57,6 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
             Stop();
         }
 
-        public abstract void OnMessage(T message, IMessageFeedbackSender feedbackSender);
+        public abstract Task OnMessageAsync(T message, IMessageFeedbackSender feedbackSender);
     }
 }

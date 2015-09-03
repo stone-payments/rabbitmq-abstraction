@@ -1,7 +1,9 @@
-﻿namespace Vtex.RabbitMQ.Messaging.Interfaces
+﻿using System.Threading.Tasks;
+
+namespace Vtex.RabbitMQ.Messaging.Interfaces
 {
     public interface IMessageProcessingWorker<in T> where T : class
     {
-        void OnMessage(T message, IMessageFeedbackSender feedbackSender);
+        Task OnMessageAsync(T message, IMessageFeedbackSender feedbackSender);
     }
 }

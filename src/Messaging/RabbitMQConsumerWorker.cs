@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using RabbitMQ.Client.MessagePatterns;
@@ -39,7 +40,7 @@ namespace Vtex.RabbitMQ.Messaging
             CheckAliveFrequency = new TimeSpan(0, 0, 10);
         }
 
-        public void DoConsume()
+        public async Task DoConsumeAsync()
         {
             //Iterate while thread hasn't been canceled
             while (!_cancellationToken.IsCancellationRequested)
@@ -102,7 +103,7 @@ namespace Vtex.RabbitMQ.Messaging
                         try
                         {
                             //Call given messageProcessingWorker's OnMessage method to proceed with message processing
-                            _messageProcessingWorker.OnMessage(messageObject, messageFeedbackSender);
+                            await _messageProcessingWorker.OnMessageAsync(messageObject, messageFeedbackSender);
 
                             //If message has been processed with no errors but no Acknoledgement has been given
                             if (!messageFeedbackSender.MessageAcknoledged)
@@ -133,6 +134,9 @@ namespace Vtex.RabbitMQ.Messaging
                     break;
                 }
             }
+
+            //Loop ended, dispose ConsumerWorker
+            Dispose();
         }
 
         private static string GetBody(BasicDeliverEventArgs basicDeliverEventArgs)

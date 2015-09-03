@@ -50,11 +50,11 @@ namespace Vtex.RabbitMQ.Messaging
             _isStopped = true;
         }
 
-        public void Start()
+        public async Task StartAsync()
         {
             _isStopped = false;
             var token = _cancellationTokenSource.Token;
-            Task.Factory.StartNew(() => ManageConsumersLoop(token), token);
+            await Task.Factory.StartNew(async () => await ManageConsumersLoopAsync(token), token);
         }
 
         public void Stop()
@@ -84,7 +84,7 @@ namespace Vtex.RabbitMQ.Messaging
             }
         }
 
-        protected virtual void ManageConsumersLoop(CancellationToken cancellationToken)
+        protected async virtual Task ManageConsumersLoopAsync(CancellationToken cancellationToken)
         {
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -98,13 +98,13 @@ namespace Vtex.RabbitMQ.Messaging
                         _scalingAmount--;
                         _consumerWorkersCount++;
 
-                        Task.Factory.StartNew(() =>
+                        await Task.Factory.StartNew(async () =>
                         {
                             try
                             {
                                 using (IQueueConsumerWorker consumerWorker = CreateNewConsumerWorker(cancellationToken))
                                 {
-                                    consumerWorker.DoConsume();
+                                    await consumerWorker.DoConsumeAsync();
                                 }
                             }
                             catch (Exception exception)
@@ -122,7 +122,7 @@ namespace Vtex.RabbitMQ.Messaging
                     }
                 }
 
-                Task.Delay(_consumerCountManager.AutoscaleFrequency, cancellationToken);
+                await Task.Delay(_consumerCountManager.AutoscaleFrequency, cancellationToken);
             }
         }
 

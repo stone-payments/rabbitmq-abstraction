@@ -17,8 +17,8 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
 
         protected AbstractAdvancedMessageProcessingWorker(IQueueConsumer consumer, 
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue, 
-            int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, bool autoStartup = true)
-            : base(consumer, autoStartup)
+            int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0)
+            : base(consumer)
         {
             InvokeRetryCount = invokeRetryCount;
             InvokeRetryWaitMilliseconds = invokeRetryWaitMilliseconds;
@@ -28,17 +28,17 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
         protected AbstractAdvancedMessageProcessingWorker(IQueueClient queueClient, string queueName, 
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue, 
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, ConsumerCountManager consumerCountManager = null, 
-            IMessageRejectionHandler messageRejectionHandler = null, bool autoStartup = true)
-            : base(queueClient, queueName, consumerCountManager, messageRejectionHandler, autoStartup)
+            IMessageRejectionHandler messageRejectionHandler = null)
+            : base(queueClient, queueName, consumerCountManager, messageRejectionHandler)
         {
             InvokeRetryCount = invokeRetryCount;
             InvokeRetryWaitMilliseconds = invokeRetryWaitMilliseconds;
             ExceptionHandlingStrategy = exceptionHandlingStrategy;
         }
 
-        protected abstract bool TryInvoke(T message, List<Exception> exceptions);
+        protected abstract Task<bool> TryInvokeAsync(T message, List<Exception> exceptions);
 
-        public override void OnMessage(T message, IMessageFeedbackSender feedbackSender)
+        public async override Task OnMessageAsync(T message, IMessageFeedbackSender feedbackSender)
         {
             var invocationSuccess = false;
             var exceptions = new List<Exception>();
@@ -49,12 +49,12 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
             {
                 if (tryCount > 0 && InvokeRetryWaitMilliseconds > 0)
                 {
-                    Task.Delay(InvokeRetryWaitMilliseconds);
+                    await Task.Delay(InvokeRetryWaitMilliseconds);
                 }
 
                 tryCount++;
 
-                invocationSuccess = TryInvoke(message, exceptions);
+                invocationSuccess = await TryInvokeAsync(message, exceptions);
             }
 
             if (invocationSuccess)

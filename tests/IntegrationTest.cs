@@ -28,7 +28,7 @@ namespace Vtex.RabbitMQ.Tests
 
                 var receivedMessage = "";
 
-                var worker = new SimpleMessageProcessingWorker<string>(queueClient, queueName,
+                var worker = await SimpleMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
                     message => DoSomething(message, out receivedMessage));
 
                 const int timeLimit = 10000;
@@ -66,7 +66,7 @@ namespace Vtex.RabbitMQ.Tests
 
                 var receivedMessages = new ConcurrentBag<string>();
 
-                var worker = new SimpleMessageProcessingWorker<string>(queueClient, queueName,
+                var worker = await SimpleMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
                     message => BatchDoSomething(message, receivedMessages));
 
                 const int timeLimit = 10000;
@@ -103,7 +103,7 @@ namespace Vtex.RabbitMQ.Tests
 
                 var receivedMessage = "";
 
-                var worker = new AdvancedMessageProcessingWorker<string>(queueClient, queueName,
+                var worker = await AdvancedMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
                     message => DoSomething(message, out receivedMessage));
 
                 const int timeLimit = 10000;
@@ -141,7 +141,7 @@ namespace Vtex.RabbitMQ.Tests
 
                 var receivedMessages = new ConcurrentBag<string>();
 
-                var worker = new AdvancedMessageProcessingWorker<string>(queueClient, queueName,
+                var worker = await AdvancedMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
                     message => BatchDoSomething(message, receivedMessages));
 
                 const int timeLimit = 10000;
@@ -169,9 +169,9 @@ namespace Vtex.RabbitMQ.Tests
             {
                 HostName = "localhost",
                 Port = 5672,
-                UserName = "geust",
+                UserName = "guest",
                 Password = "guest",
-                VirtualHost = "virtualHost"
+                VirtualHost = "testing"
             };
         }
 

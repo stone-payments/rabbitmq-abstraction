@@ -19,7 +19,7 @@ namespace Vtex.RabbitMQ.Messaging
         private readonly CancellationToken _cancellationToken;
         private readonly IMessageProcessingWorker<T> _messageProcessingWorker;
         private readonly IMessageRejectionHandler _messageRejectionHandler;
-        private readonly Func<int> _scaleCallbackFunc;
+        private readonly Func<bool> _scaleCallbackFunc;
 
         public TimeSpan CheckAliveFrequency { get; set; }
 
@@ -27,7 +27,7 @@ namespace Vtex.RabbitMQ.Messaging
 
         public RabbitMQConsumerWorker(IConnection connection, string queueName, 
             IMessageProcessingWorker<T> messageProcessingWorker, IMessageRejectionHandler messageRejectionHandler, 
-            ISerializer serializer, Func<int> scaleCallbackFunc, CancellationToken cancellationToken)
+            ISerializer serializer, Func<bool> scaleCallbackFunc, CancellationToken cancellationToken)
         {
             _model = connection.CreateModel();
             _model.BasicQos(0, 1, false);
@@ -128,7 +128,7 @@ namespace Vtex.RabbitMQ.Messaging
                 }
 
                 //In the end of the consumption loop, check if scaleDown has been requested
-                if (_scaleCallbackFunc != null && _scaleCallbackFunc() < 0)
+                if (_scaleCallbackFunc())
                 {
                     //If so, break consumption loop to let the thread end gracefully
                     break;

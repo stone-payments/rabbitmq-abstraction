@@ -163,6 +163,49 @@ namespace Vtex.RabbitMQ.Tests
             }
         }
 
+        [Test]
+        public async Task ConsumerScaling()
+        {
+            var connectionFactory = CreateConnectionFactory();
+
+            int messageAmount = 30000;
+
+            var messages = GenerateMessages(messageAmount);
+
+            using (var queueClient = new RabbitMQClient(connectionFactory))
+            {
+                var queueName = $"IntegratedTestQueue_{Guid.NewGuid()}";
+
+                queueClient.EnsureQueueExists(queueName);
+
+                queueClient.BatchPublish("", queueName, messages);
+
+                var worker = await SimpleMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
+                            async message => await Task.Delay(20), new ConsumerCountManager(4, 50, 1000, 2000));
+
+                const int timeLimit = 1200000;
+
+                var elapsedTime = 0;
+
+                while (elapsedTime < timeLimit)
+                {
+                    await Task.Delay(100);
+                    elapsedTime += 100;
+
+                    if (elapsedTime%1000 == 0 && messageAmount < 70000)
+                    {
+                        messages = GenerateMessages(1000);
+                        queueClient.BatchPublish("", queueName, messages);
+                        messageAmount += 1000;
+                    }
+                }
+
+                worker.Stop();
+
+                queueClient.QueueDelete(queueName);
+            }
+        }
+
         private static ConnectionFactory CreateConnectionFactory()
         {
             return new ConnectionFactory

@@ -1,10 +1,12 @@
 ﻿using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Vtex.RabbitMQ.Messaging.Interfaces
 {
     public interface IQueueConsumer : IDisposable
     {
-        void Start();
+        Task StartAsync(CancellationToken cancellationToken);
 
         void Stop();
 

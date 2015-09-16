@@ -28,10 +28,10 @@ namespace Vtex.RabbitMQ.Messaging
 
         private readonly IConsumerCountManager _consumerCountManager;
 
-        private bool _isStopped;
+        private int _scalingAmount;
+        private int _consumerWorkersCount;
 
-        private volatile int _scalingAmount;
-        private volatile int _consumerWorkersCount;
+        private readonly object _scalingLock = new object();
 
         public RabbitMQConsumer(RabbitMQConnectionPool connectionPool, string queueName, 
             IMessageProcessingWorker<T> messageProcessingWorker, ISerializer serializer = null, IErrorLogger errorLogger = null, 
@@ -47,24 +47,18 @@ namespace Vtex.RabbitMQ.Messaging
 
             _consumerWorkersCount = 0;
             _cancellationTokenSource = new CancellationTokenSource();
-            _isStopped = true;
         }
 
-        public void Start()
+        public Task StartAsync(CancellationToken cancellationToken)
         {
-            _isStopped = false;
             var token = _cancellationTokenSource.Token;
-            Task.Factory.StartNew(() => ManageConsumersLoop(token), token);
+
+            return Task.Factory.StartNew(async () => await ManageConsumersLoopAsync(token).ConfigureAwait(false),
+                cancellationToken);
         }
 
         public void Stop()
         {
-            _isStopped = true;
-            //TODO: Review this lock
-            //lock (this._scalingAmountSyncLock)
-            {
-                _scalingAmount = _consumerWorkersCount * -1;
-            }
             _cancellationTokenSource.Cancel();
         }
 
@@ -84,49 +78,47 @@ namespace Vtex.RabbitMQ.Messaging
             }
         }
 
-        protected virtual void ManageConsumersLoop(CancellationToken cancellationToken)
+        protected async virtual Task ManageConsumersLoopAsync(CancellationToken cancellationToken)
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                if (!_isStopped)
-                {
-                    var queueInfo = CreateQueueInfo();
-                    _scalingAmount = _consumerCountManager.GetScalingAmount(queueInfo, _consumerWorkersCount);
-                    var scalingAmount = _scalingAmount;
-                    for (var i = 1; i <= scalingAmount; i++)
-                    {
-                        _scalingAmount--;
-                        _consumerWorkersCount++;
+                var queueInfo = CreateQueueInfo();
 
-                        Task.Factory.StartNew(() =>
+                lock (_scalingLock)
+                {
+                    _scalingAmount = _consumerCountManager.GetScalingAmount(queueInfo, _consumerWorkersCount);
+
+                    for (var i = 1; i <= _scalingAmount; i++)
+                    {
+                        Task.Factory.StartNew(async () =>
                         {
                             try
                             {
-                                using (IQueueConsumerWorker consumerWorker = CreateNewConsumerWorker(cancellationToken))
+                                Interlocked.Decrement(ref _scalingAmount);
+                                Interlocked.Increment(ref _consumerWorkersCount);
+
+                                using (IQueueConsumerWorker consumerWorker = CreateNewConsumerWorker())
                                 {
-                                    consumerWorker.DoConsume();
+                                    await consumerWorker.DoConsumeAsync(cancellationToken).ConfigureAwait(false);
                                 }
                             }
                             catch (Exception exception)
                             {
+                                Interlocked.Increment(ref _scalingAmount);
+                                Interlocked.Decrement(ref _consumerWorkersCount);
+
                                 _errorLogger?.LogError("RabbitMQ.AdvancedConsumer", exception.ToString(),
                                     "QueueName", _queueName);
                             }
-                            finally
-                            {
-                                _consumerWorkersCount--;
-                                _scalingAmount++;
-                            }
-                        }
-                        , cancellationToken);
+                        }, cancellationToken);
                     }
                 }
 
-                Task.Delay(_consumerCountManager.AutoscaleFrequency, cancellationToken);
+                await Task.Delay(_consumerCountManager.AutoscaleFrequency, cancellationToken).ConfigureAwait(false);
             }
         }
 
-        private RabbitMQConsumerWorker<T> CreateNewConsumerWorker(CancellationToken cancellationToken)
+        private RabbitMQConsumerWorker<T> CreateNewConsumerWorker()
         {
             var newConsumerWorker = new RabbitMQConsumerWorker<T>(
                 connection: _connectionPool.GetConnection(),
@@ -134,16 +126,29 @@ namespace Vtex.RabbitMQ.Messaging
                 messageProcessingWorker: _messageProcessingWorker,
                 messageRejectionHandler: _messageRejectionHandler,
                 serializer: _serializer,
-                scaleCallbackFunc: GetScalingAmount,
-                cancellationToken: cancellationToken
+                scaleCallbackFunc: TryScaleDown
             );
 
             return newConsumerWorker;
         }
 
-        private int GetScalingAmount()
+        private bool TryScaleDown()
         {
-            return _scalingAmount;
+            if (_scalingAmount < 0)
+            {
+                lock (_scalingLock)
+                {
+                    if (_scalingAmount < 0)
+                    {
+                        Interlocked.Increment(ref _scalingAmount);
+                        Interlocked.Decrement(ref _consumerWorkersCount);
+
+                        return true;
+                    }
+                }
+            }
+            
+            return false;
         }
 
         public void Dispose()
@@ -153,14 +158,16 @@ namespace Vtex.RabbitMQ.Messaging
 
         private QueueInfo CreateQueueInfo()
         {
-            QueueInfo queueInfo = null;
+            QueueInfo queueInfo;
             using (var model = _connectionPool.GetConnection().CreateModel())
             {
+                var queueDeclareOk = model.QueueDeclarePassive(_queueName);
+
                 queueInfo = new QueueInfo
                 {
                     QueueName = _queueName,
-                    ConsumerCount = GetConsumerCount(model),
-                    MessageCount = GetMessageCount(model)
+                    ConsumerCount = queueDeclareOk.ConsumerCount,
+                    MessageCount = queueDeclareOk.MessageCount
                 };
             }
             return queueInfo;

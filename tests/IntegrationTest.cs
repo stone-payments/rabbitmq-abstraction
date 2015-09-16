@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
 using RabbitMQ.Client;
@@ -28,8 +29,8 @@ namespace Vtex.RabbitMQ.Tests
 
                 var receivedMessage = "";
 
-                var worker = new SimpleMessageProcessingWorker<string>(queueClient, queueName,
-                    message => DoSomething(message, out receivedMessage));
+                var worker = await SimpleMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
+                    message => DoSomething(message, out receivedMessage), CancellationToken.None);
 
                 const int timeLimit = 10000;
 
@@ -66,8 +67,8 @@ namespace Vtex.RabbitMQ.Tests
 
                 var receivedMessages = new ConcurrentBag<string>();
 
-                var worker = new SimpleMessageProcessingWorker<string>(queueClient, queueName,
-                    message => BatchDoSomething(message, receivedMessages));
+                var worker = await SimpleMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
+                    message => BatchDoSomething(message, receivedMessages), CancellationToken.None);
 
                 const int timeLimit = 10000;
 
@@ -103,8 +104,8 @@ namespace Vtex.RabbitMQ.Tests
 
                 var receivedMessage = "";
 
-                var worker = new AdvancedMessageProcessingWorker<string>(queueClient, queueName,
-                    message => DoSomething(message, out receivedMessage));
+                var worker = await AdvancedMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
+                    message => DoSomething(message, out receivedMessage), CancellationToken.None);
 
                 const int timeLimit = 10000;
 
@@ -141,8 +142,8 @@ namespace Vtex.RabbitMQ.Tests
 
                 var receivedMessages = new ConcurrentBag<string>();
 
-                var worker = new AdvancedMessageProcessingWorker<string>(queueClient, queueName,
-                    message => BatchDoSomething(message, receivedMessages));
+                var worker = await AdvancedMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
+                    message => BatchDoSomething(message, receivedMessages), CancellationToken.None);
 
                 const int timeLimit = 10000;
 
@@ -163,15 +164,58 @@ namespace Vtex.RabbitMQ.Tests
             }
         }
 
+        [Test]
+        public async Task ConsumerScaling()
+        {
+            var connectionFactory = CreateConnectionFactory();
+
+            int messageAmount = 30000;
+
+            var messages = GenerateMessages(messageAmount);
+
+            using (var queueClient = new RabbitMQClient(connectionFactory))
+            {
+                var queueName = $"IntegratedTestQueue_{Guid.NewGuid()}";
+
+                queueClient.EnsureQueueExists(queueName);
+
+                queueClient.BatchPublish("", queueName, messages);
+
+                var worker = await SimpleMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
+                            async message => await Task.Delay(20), CancellationToken.None, new ConsumerCountManager(4, 50, 1000, 2000));
+
+                const int timeLimit = 1200000;
+
+                var elapsedTime = 0;
+
+                while (elapsedTime < timeLimit)
+                {
+                    await Task.Delay(100);
+                    elapsedTime += 100;
+
+                    if (elapsedTime%1000 == 0 && messageAmount < 70000)
+                    {
+                        messages = GenerateMessages(1000);
+                        queueClient.BatchPublish("", queueName, messages);
+                        messageAmount += 1000;
+                    }
+                }
+
+                worker.Stop();
+
+                queueClient.QueueDelete(queueName);
+            }
+        }
+
         private static ConnectionFactory CreateConnectionFactory()
         {
             return new ConnectionFactory
             {
                 HostName = "localhost",
                 Port = 5672,
-                UserName = "geust",
+                UserName = "guest",
                 Password = "guest",
-                VirtualHost = "virtualHost"
+                VirtualHost = "testing"
             };
         }
 

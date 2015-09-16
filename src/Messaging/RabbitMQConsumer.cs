@@ -49,10 +49,12 @@ namespace Vtex.RabbitMQ.Messaging
             _cancellationTokenSource = new CancellationTokenSource();
         }
 
-        public async Task StartAsync()
+        public Task StartAsync(CancellationToken cancellationToken)
         {
             var token = _cancellationTokenSource.Token;
-            await Task.Factory.StartNew(async () => await ManageConsumersLoopAsync(token), token);
+
+            return Task.Factory.StartNew(async () => await ManageConsumersLoopAsync(token).ConfigureAwait(false),
+                cancellationToken);
         }
 
         public void Stop()
@@ -95,9 +97,9 @@ namespace Vtex.RabbitMQ.Messaging
                                 Interlocked.Decrement(ref _scalingAmount);
                                 Interlocked.Increment(ref _consumerWorkersCount);
 
-                                using (IQueueConsumerWorker consumerWorker = CreateNewConsumerWorker(cancellationToken))
+                                using (IQueueConsumerWorker consumerWorker = CreateNewConsumerWorker())
                                 {
-                                    await consumerWorker.DoConsumeAsync();
+                                    await consumerWorker.DoConsumeAsync(cancellationToken).ConfigureAwait(false);
                                 }
                             }
                             catch (Exception exception)
@@ -112,11 +114,11 @@ namespace Vtex.RabbitMQ.Messaging
                     }
                 }
 
-                await Task.Delay(_consumerCountManager.AutoscaleFrequency, cancellationToken);
+                await Task.Delay(_consumerCountManager.AutoscaleFrequency, cancellationToken).ConfigureAwait(false);
             }
         }
 
-        private RabbitMQConsumerWorker<T> CreateNewConsumerWorker(CancellationToken cancellationToken)
+        private RabbitMQConsumerWorker<T> CreateNewConsumerWorker()
         {
             var newConsumerWorker = new RabbitMQConsumerWorker<T>(
                 connection: _connectionPool.GetConnection(),
@@ -124,8 +126,7 @@ namespace Vtex.RabbitMQ.Messaging
                 messageProcessingWorker: _messageProcessingWorker,
                 messageRejectionHandler: _messageRejectionHandler,
                 serializer: _serializer,
-                scaleCallbackFunc: TryScaleDown,
-                cancellationToken: cancellationToken
+                scaleCallbackFunc: TryScaleDown
             );
 
             return newConsumerWorker;

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Vtex.RabbitMQ.Interfaces;
 using Vtex.RabbitMQ.Messaging.Interfaces;
@@ -32,7 +33,7 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
             MessageRejectionHandler = messageRejectionHandler ?? new MessageDeserializationRejectionHandler(QueueClient);
         }
 
-        public Task StartAsync()
+        public Task StartAsync(CancellationToken cancellationToken)
         {
             if (Consumer == null)
             {
@@ -40,7 +41,7 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
                     MessageRejectionHandler);
             }
 
-            return Consumer.StartAsync();
+            return Consumer.StartAsync(cancellationToken);
         }
 
         public void Stop()
@@ -57,6 +58,6 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
             Stop();
         }
 
-        public abstract Task OnMessageAsync(T message, IMessageFeedbackSender feedbackSender);
+        public abstract Task OnMessageAsync(T message, IMessageFeedbackSender feedbackSender, CancellationToken cancellationToken);
     }
 }

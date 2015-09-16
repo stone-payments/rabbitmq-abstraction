@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Vtex.RabbitMQ.Interfaces;
 using Vtex.RabbitMQ.Messaging.Interfaces;
@@ -22,26 +23,30 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
             CallbackAction = callbackAction;
         }
 
-        public async static Task<SimpleMessageProcessingWorker<T>> CreateAndStartAsync(IQueueConsumer consumer, Action<T> callbackAction)
+        public async static Task<SimpleMessageProcessingWorker<T>> CreateAndStartAsync(IQueueConsumer consumer, 
+            Action<T> callbackAction, CancellationToken cancellationToken)
         {
             var instance = new SimpleMessageProcessingWorker<T>(consumer, callbackAction);
 
-            await instance.StartAsync();
+            await instance.StartAsync(cancellationToken).ConfigureAwait(false);
 
             return instance;
         }
 
-        public async static Task<SimpleMessageProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient, string queueName, Action<T> callbackAction,
+        public async static Task<SimpleMessageProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient, 
+            string queueName, Action<T> callbackAction, CancellationToken cancellationToken,
             IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
         {
-            var instance = new SimpleMessageProcessingWorker<T>(queueClient, queueName, callbackAction, consumerCountManager, messageRejectionHandler);
+            var instance = new SimpleMessageProcessingWorker<T>(queueClient, queueName, callbackAction, 
+                consumerCountManager, messageRejectionHandler);
 
-            await instance.StartAsync();
+            await instance.StartAsync(cancellationToken).ConfigureAwait(false);
 
             return instance;
         }
 
-        public override Task OnMessageAsync(T message, IMessageFeedbackSender feedbackSender)
+        public override Task OnMessageAsync(T message, IMessageFeedbackSender feedbackSender, 
+            CancellationToken cancellationToken)
         {
             try
             {

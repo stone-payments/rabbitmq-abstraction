@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Vtex.RabbitMQ.Exceptions.Workflow;
 using Vtex.RabbitMQ.Messaging.Interfaces;
@@ -27,8 +28,8 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
 
         protected AbstractAdvancedMessageProcessingWorker(IQueueClient queueClient, string queueName, 
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue, 
-            int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, ConsumerCountManager consumerCountManager = null, 
-            IMessageRejectionHandler messageRejectionHandler = null)
+            int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, 
+            ConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
             : base(queueClient, queueName, consumerCountManager, messageRejectionHandler)
         {
             InvokeRetryCount = invokeRetryCount;
@@ -36,9 +37,11 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
             ExceptionHandlingStrategy = exceptionHandlingStrategy;
         }
 
-        protected abstract Task<bool> TryInvokeAsync(T message, List<Exception> exceptions);
+        protected abstract Task<bool> TryInvokeAsync(T message, List<Exception> exceptions, 
+            CancellationToken cancellationToken);
 
-        public async override Task OnMessageAsync(T message, IMessageFeedbackSender feedbackSender)
+        public async override Task OnMessageAsync(T message, IMessageFeedbackSender feedbackSender, 
+            CancellationToken cancellationToken)
         {
             var invocationSuccess = false;
             var exceptions = new List<Exception>();
@@ -49,12 +52,12 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
             {
                 if (tryCount > 0 && InvokeRetryWaitMilliseconds > 0)
                 {
-                    await Task.Delay(InvokeRetryWaitMilliseconds);
+                    await Task.Delay(InvokeRetryWaitMilliseconds, cancellationToken).ConfigureAwait(false);
                 }
 
                 tryCount++;
 
-                invocationSuccess = await TryInvokeAsync(message, exceptions);
+                invocationSuccess = await TryInvokeAsync(message, exceptions, cancellationToken).ConfigureAwait(false);
             }
 
             if (invocationSuccess)

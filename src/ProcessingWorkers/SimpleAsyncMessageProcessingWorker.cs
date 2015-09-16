@@ -10,53 +10,56 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
     {
         private readonly Func<T, CancellationToken, Task> _callbackFunc;
 
-        private readonly CancellationTokenSource _cancellationTokenSource;
+        private readonly TimeSpan _processingTimeout;
 
         public SimpleAsyncMessageProcessingWorker(IQueueConsumer consumer, Func<T, CancellationToken, Task> callbackFunc, 
-            CancellationTokenSource cancellationTokenSource)
+            TimeSpan processingTimeout)
             : base(consumer)
         {
             _callbackFunc = callbackFunc;
-            _cancellationTokenSource = cancellationTokenSource;
+            _processingTimeout = processingTimeout;
         }
 
         public SimpleAsyncMessageProcessingWorker(IQueueClient queueClient, string queueName, 
-            Func<T, CancellationToken, Task> callbackFunc, CancellationTokenSource cancellationTokenSource, 
+            Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout,
             IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
             : base(queueClient, queueName, consumerCountManager, messageRejectionHandler)
         {
             _callbackFunc = callbackFunc;
-            _cancellationTokenSource = cancellationTokenSource;
+            _processingTimeout = processingTimeout;
         }
 
         public async static Task<SimpleAsyncMessageProcessingWorker<T>> CreateAndStartAsync(IQueueConsumer consumer, 
-            Func<T, CancellationToken, Task> callbackFunc, CancellationTokenSource cancellationTokenSource)
+            Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout, CancellationToken cancellationToken)
         {
-            var instance = new SimpleAsyncMessageProcessingWorker<T>(consumer, callbackFunc, cancellationTokenSource);
+            var instance = new SimpleAsyncMessageProcessingWorker<T>(consumer, callbackFunc, processingTimeout);
 
-            await instance.StartAsync();
+            await instance.StartAsync(cancellationToken).ConfigureAwait(false);
 
             return instance;
         }
 
         public async static Task<SimpleAsyncMessageProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient, 
-            string queueName, Func<T, CancellationToken, Task> callbackFunc, 
-            CancellationTokenSource cancellationTokenSource, IConsumerCountManager consumerCountManager = null, 
+            string queueName, Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout, 
+            CancellationToken cancellationToken, IConsumerCountManager consumerCountManager = null, 
             IMessageRejectionHandler messageRejectionHandler = null)
         {
-            var instance = new SimpleAsyncMessageProcessingWorker<T>(queueClient, queueName, callbackFunc, 
-                cancellationTokenSource, consumerCountManager, messageRejectionHandler);
+            var instance = new SimpleAsyncMessageProcessingWorker<T>(queueClient, queueName, callbackFunc,
+                processingTimeout, consumerCountManager, messageRejectionHandler);
 
-            await instance.StartAsync();
+            await instance.StartAsync(cancellationToken).ConfigureAwait(false);
 
             return instance;
         }
 
-        public async override Task OnMessageAsync(T message, IMessageFeedbackSender feedbackSender)
+        public async override Task OnMessageAsync(T message, IMessageFeedbackSender feedbackSender, CancellationToken cancellationToken)
         {
             try
             {
-                await _callbackFunc(message, _cancellationTokenSource.Token);
+                var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                tokenSource.CancelAfter(_processingTimeout);
+
+                await _callbackFunc(message, tokenSource.Token).ConfigureAwait(false);
                 feedbackSender.Ack();
             }
             catch (Exception)

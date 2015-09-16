@@ -16,7 +16,6 @@ namespace Vtex.RabbitMQ.Messaging
         private readonly Subscription _subscription;
         private readonly IModel _model;
         private readonly ISerializer _serializer;
-        private readonly CancellationToken _cancellationToken;
         private readonly IMessageProcessingWorker<T> _messageProcessingWorker;
         private readonly IMessageRejectionHandler _messageRejectionHandler;
         private readonly Func<bool> _scaleCallbackFunc;
@@ -27,7 +26,7 @@ namespace Vtex.RabbitMQ.Messaging
 
         public RabbitMQConsumerWorker(IConnection connection, string queueName, 
             IMessageProcessingWorker<T> messageProcessingWorker, IMessageRejectionHandler messageRejectionHandler, 
-            ISerializer serializer, Func<bool> scaleCallbackFunc, CancellationToken cancellationToken)
+            ISerializer serializer, Func<bool> scaleCallbackFunc)
         {
             _model = connection.CreateModel();
             _model.BasicQos(0, 1, false);
@@ -35,15 +34,14 @@ namespace Vtex.RabbitMQ.Messaging
             _messageProcessingWorker = messageProcessingWorker;
             _messageRejectionHandler = messageRejectionHandler;
             _serializer = serializer;
-            _cancellationToken = cancellationToken;
             _scaleCallbackFunc = scaleCallbackFunc;
             CheckAliveFrequency = new TimeSpan(0, 0, 10);
         }
 
-        public async Task DoConsumeAsync()
+        public async Task DoConsumeAsync(CancellationToken cancellationToken)
         {
             //Iterate while thread hasn't been canceled
-            while (!_cancellationToken.IsCancellationRequested)
+            while (!cancellationToken.IsCancellationRequested)
             {
                 //Create BasicDeliverEventArgs object and start trying to get the next message on the queue
                 BasicDeliverEventArgs lastResult;
@@ -103,7 +101,8 @@ namespace Vtex.RabbitMQ.Messaging
                         try
                         {
                             //Call given messageProcessingWorker's OnMessage method to proceed with message processing
-                            await _messageProcessingWorker.OnMessageAsync(messageObject, messageFeedbackSender);
+                            await _messageProcessingWorker.OnMessageAsync(messageObject, messageFeedbackSender, 
+                                cancellationToken).ConfigureAwait(false);
 
                             //If message has been processed with no errors but no Acknoledgement has been given
                             if (!messageFeedbackSender.MessageAcknoledged)

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
 using RabbitMQ.Client;
@@ -29,7 +30,7 @@ namespace Vtex.RabbitMQ.Tests
                 var receivedMessage = "";
 
                 var worker = await SimpleMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
-                    message => DoSomething(message, out receivedMessage));
+                    message => DoSomething(message, out receivedMessage), CancellationToken.None);
 
                 const int timeLimit = 10000;
 
@@ -67,7 +68,7 @@ namespace Vtex.RabbitMQ.Tests
                 var receivedMessages = new ConcurrentBag<string>();
 
                 var worker = await SimpleMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
-                    message => BatchDoSomething(message, receivedMessages));
+                    message => BatchDoSomething(message, receivedMessages), CancellationToken.None);
 
                 const int timeLimit = 10000;
 
@@ -104,7 +105,7 @@ namespace Vtex.RabbitMQ.Tests
                 var receivedMessage = "";
 
                 var worker = await AdvancedMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
-                    message => DoSomething(message, out receivedMessage));
+                    message => DoSomething(message, out receivedMessage), CancellationToken.None);
 
                 const int timeLimit = 10000;
 
@@ -142,7 +143,7 @@ namespace Vtex.RabbitMQ.Tests
                 var receivedMessages = new ConcurrentBag<string>();
 
                 var worker = await AdvancedMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
-                    message => BatchDoSomething(message, receivedMessages));
+                    message => BatchDoSomething(message, receivedMessages), CancellationToken.None);
 
                 const int timeLimit = 10000;
 
@@ -181,7 +182,7 @@ namespace Vtex.RabbitMQ.Tests
                 queueClient.BatchPublish("", queueName, messages);
 
                 var worker = await SimpleMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
-                            async message => await Task.Delay(20), new ConsumerCountManager(4, 50, 1000, 2000));
+                            async message => await Task.Delay(20), CancellationToken.None, new ConsumerCountManager(4, 50, 1000, 2000));
 
                 const int timeLimit = 1200000;
 

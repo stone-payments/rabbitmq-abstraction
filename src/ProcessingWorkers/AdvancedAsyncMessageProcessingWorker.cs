@@ -10,20 +10,20 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
     {
         private readonly Func<T, CancellationToken, Task> _callbackFunc;
 
-        private readonly CancellationTokenSource _cancellationTokenSource;
+        private readonly TimeSpan _processingTimeout;
 
         public AdvancedAsyncMessageProcessingWorker(IQueueConsumer consumer, 
-            Func<T, CancellationToken, Task> callbackFunc, CancellationTokenSource cancellationTokenSource,
+            Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue, 
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0)
             : base(consumer, exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds)
         {
             _callbackFunc = callbackFunc;
-            _cancellationTokenSource = cancellationTokenSource;
+            _processingTimeout = processingTimeout;
         }
 
         public AdvancedAsyncMessageProcessingWorker(IQueueClient queueClient, string queueName, 
-            Func<T, CancellationToken, Task> callbackFunc, CancellationTokenSource cancellationTokenSource,
+            Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue, 
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, 
             ConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
@@ -31,42 +31,48 @@ namespace Vtex.RabbitMQ.ProcessingWorkers
             consumerCountManager, messageRejectionHandler)
         {
             _callbackFunc = callbackFunc;
-            _cancellationTokenSource = cancellationTokenSource;
+            _processingTimeout = processingTimeout;
         }
 
         public async static Task<AdvancedAsyncMessageProcessingWorker<T>> CreateAndStartAsync(IQueueConsumer consumer,
-            Func<T, CancellationToken, Task> callbackFunc, CancellationTokenSource cancellationTokenSource,
+            Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout, 
+            CancellationToken cancellationToken,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0)
         {
-            var instance = new AdvancedAsyncMessageProcessingWorker<T>(consumer, callbackFunc, cancellationTokenSource,
+            var instance = new AdvancedAsyncMessageProcessingWorker<T>(consumer, callbackFunc, processingTimeout,
             exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds);
 
-            await instance.StartAsync();
+            await instance.StartAsync(cancellationToken).ConfigureAwait(false);
 
             return instance;
         }
 
         public async static Task<AdvancedAsyncMessageProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient, 
-            string queueName, Func<T, CancellationToken, Task> callbackFunc, CancellationTokenSource cancellationTokenSource, 
+            string queueName, Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout, 
+            CancellationToken cancellationToken, 
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
-            int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, ConsumerCountManager consumerCountManager = null,
-            IMessageRejectionHandler messageRejectionHandler = null)
+            int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, 
+            ConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
         {
             var instance = new AdvancedAsyncMessageProcessingWorker<T>(queueClient, queueName, callbackFunc, 
-                cancellationTokenSource, exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds, 
+                processingTimeout, exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds, 
                 consumerCountManager, messageRejectionHandler);
 
-            await instance.StartAsync();
+            await instance.StartAsync(cancellationToken).ConfigureAwait(false);
 
             return instance;
         }
 
-        protected override async Task<bool> TryInvokeAsync(T message, List<Exception> exceptions)
+        protected override async Task<bool> TryInvokeAsync(T message, List<Exception> exceptions, 
+            CancellationToken cancellationToken)
         {
             try
             {
-                await _callbackFunc(message, _cancellationTokenSource.Token);
+                var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                tokenSource.CancelAfter(_processingTimeout);
+
+                await _callbackFunc(message, tokenSource.Token).ConfigureAwait(false);
 
                 return true;
             }

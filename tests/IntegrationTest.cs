@@ -207,6 +207,37 @@ namespace Vtex.RabbitMQ.Tests
             }
         }
 
+        [Test]
+        public async Task DelayedPublish()
+        {
+            var connectionFactory = CreateConnectionFactory();
+
+            using (var queueClient = new RabbitMQClient(connectionFactory))
+            {
+                var queueName = $"IntegratedTestQueue_{Guid.NewGuid()}";
+
+                try
+                {
+                    queueClient.QueueDeclare(queueName);
+                    queueClient.ExchangeDeclare("delayedTargetExchange");
+                    queueClient.QueueBind(queueName, "delayedTargetExchange", "delayedTargetRoutingKey");
+
+                    queueClient.DelayedPublish("delayedTargetExchange", "delayedTargetRoutingKey", "delayedMessage",
+                        TimeSpan.FromSeconds(5));
+
+                    queueClient.GetMessageCount(queueName).ShouldBe<uint>(0);
+
+                    await Task.Delay(TimeSpan.FromSeconds(5));
+
+                    queueClient.GetMessageCount(queueName).ShouldBe<uint>(1);
+                }
+                finally
+                {
+                    queueClient.QueueDelete(queueName);
+                }
+            }
+        }
+
         private static ConnectionFactory CreateConnectionFactory()
         {
             return new ConnectionFactory

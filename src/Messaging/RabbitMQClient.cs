@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using RabbitMQ.Client;
@@ -138,6 +139,31 @@ namespace Vtex.RabbitMQ.Messaging
                     
                     throw;
                 }
+            }
+        }
+
+        public void DelayedPublish<T>(string exchangeName, string routingKey, T content, TimeSpan delay)
+        {
+            var serializedContent = _serializer.Serialize(content);
+            using (var model = _connectionPool.GetConnection().CreateModel())
+            {
+                var props = model.CreateBasicProperties();
+                props.DeliveryMode = 2;
+                props.Expiration = delay.TotalMilliseconds.ToString(CultureInfo.InvariantCulture);
+                var payload = Encoding.UTF8.GetBytes(serializedContent);
+
+                var queueName = $"delayed.{routingKey}@{exchangeName}.{DateTimeOffset.UtcNow.Ticks}";
+
+                QueueDeclare(queueName,
+                    arguments:
+                        new Dictionary<string, object>
+                        {
+                            {"x-dead-letter-exchange", exchangeName},
+                            {"x-dead-letter-routing-key", routingKey},
+                            {"x-expires", (long)delay.Add(TimeSpan.FromSeconds(1)).TotalMilliseconds}
+                        });
+
+                model.BasicPublish("", queueName, props, payload);
             }
         }
 

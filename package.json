@@ -1,6 +1,6 @@
 {
   "name": "rabbitmq-abstraction",
-  "version": "0.5.0-beta",
+  "version": "0.5.1-beta",
   "repository": {
     "type": "git",
     "url": "https://github.com/vtex/rabbitmq-abstraction"

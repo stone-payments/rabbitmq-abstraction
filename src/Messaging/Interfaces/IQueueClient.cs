@@ -12,6 +12,8 @@ namespace Vtex.RabbitMQ.Messaging.Interfaces
 
         void BatchPublishTransactional<T>(string exchangeName, string routingKey, IEnumerable<T> contentList);
 
+        void DelayedPublish<T>(string exchangeName, string routingKey, T content, TimeSpan delay);
+
         IQueueConsumer GetConsumer<T>(string queueName, IConsumerCountManager consumerCountManager, 
             IMessageProcessingWorker<T> messageProcessingWorker, IMessageRejectionHandler messageRejectionHandler) 
             where T : class;

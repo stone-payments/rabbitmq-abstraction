@@ -152,7 +152,7 @@ namespace Vtex.RabbitMQ.Messaging
                 props.Expiration = delay.TotalMilliseconds.ToString(CultureInfo.InvariantCulture);
                 var payload = Encoding.UTF8.GetBytes(serializedContent);
 
-                var queueName = $"delayed.{routingKey}@{exchangeName}.{DateTimeOffset.UtcNow.Ticks}";
+                var queueName = $"delayed.{routingKey}@{exchangeName}.{Guid.NewGuid()}";
 
                 QueueDeclare(queueName,
                     arguments:

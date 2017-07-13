@@ -29,10 +29,10 @@ using (var queueClient = new RabbitMQClient("localhost", 5672, "user", "password
 ```C#
 using (var queueClient = new RabbitMQClient("localhost", 5672, "user", "password", "virtualHost"))
 {
-  var simpleMessageProcessingWorker = new SimpleMessageProcessingWorker<string>(queueClient, "someQueue",
-    Console.WriteLine);
+    var simpleMessageProcessingWorker = await SimpleMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, "someQueue",
+        Console.WriteLine, CancellationToken.None);
 
-  simpleMessageProcessingWorker.Stop();
+    simpleMessageProcessingWorker.Stop();
 }
 ```
 
@@ -40,17 +40,15 @@ using (var queueClient = new RabbitMQClient("localhost", 5672, "user", "password
 ```C#
 using (var queueClient = new RabbitMQClient("localhost", 5672, "user", "password", "virtualHost"))
 {
-  var cancellationToken = new CancellationToken();
+    var simpleAsyncMessageProcessingWorker = await SimpleAsyncMessageProcessingWorker<string>.CreateAndStartAsync(queueClient,
+        "someQueue", (message, innerCancellationToken) =>
+        {
+            Console.WriteLine(message);
 
-  var simpleAsyncMessageProcessingWorker = new SimpleAsyncMessageProcessingWorker<string>(queueClient, 
-      "someQueue", (message, innerCancellationToken) =>
-      {
-          Console.WriteLine(message);
+            return Task.FromResult(0);
+        }, TimeSpan.FromSeconds(10), CancellationToken.None);
 
-          return Task.FromResult(0);
-      }, cancellationToken);
-
-  simpleAsyncMessageProcessingWorker.Stop();
+    simpleAsyncMessageProcessingWorker.Stop();
 }
 ```
 
@@ -58,10 +56,10 @@ using (var queueClient = new RabbitMQClient("localhost", 5672, "user", "password
 ```C#
 using (var queueClient = new RabbitMQClient("localhost", 5672, "user", "password", "virtualHost"))
 {
-  var advancedMessageProcessingWorker = new AdvancedMessageProcessingWorker<string>(queueClient,
-      "someQueue", Console.WriteLine);
+    var advancedMessageProcessingWorker = await AdvancedMessageProcessingWorker<string>.CreateAndStartAsync(queueClient,
+        "someQueue", Console.WriteLine, CancellationToken.None);
 
-  advancedMessageProcessingWorker.Stop();
+    advancedMessageProcessingWorker.Stop();
 }
 ```
 
@@ -69,14 +67,14 @@ using (var queueClient = new RabbitMQClient("localhost", 5672, "user", "password
 ```C#
 using (var queueClient = new RabbitMQClient("localhost", 5672, "user", "password", "virtualHost"))
 {
-  var advancedAsyncMessageProcessingWorker = new AdvancedAsyncMessageProcessingWorker<string>(queueClient,
-      "someQueue", (message, innerCancellationToken) =>
-      {
-          Console.WriteLine(message);
+    var advancedAsyncMessageProcessingWorker = await AdvancedAsyncMessageProcessingWorker<string>.CreateAndStartAsync(queueClient,
+        "someQueue", (message, innerCancellationToken) =>
+        {
+            Console.WriteLine(message);
 
-          return Task.FromResult(0);
-      }, cancellationToken);
+            return Task.FromResult(0);
+        }, TimeSpan.FromSeconds(10), CancellationToken.None);
 
-  advancedAsyncMessageProcessingWorker.Stop();
+    advancedAsyncMessageProcessingWorker.Stop();
 }
 ```

@@ -4,12 +4,14 @@
     <TargetFramework>netstandard1.6</TargetFramework>
     <PackageId>Stone.RabbitMQ.Abstraction</PackageId>
     <PackageVersion>1.0.0-rc2</PackageVersion>
+    <Title>RabbitMQ Abstraction</Title>
     <Authors>Stone Pagamentos</Authors>
     <Description>RabbitMQ Abstraction for messaging workflow and infrastructure management</Description>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <Copyright>Copyright 2017 (c) Stone Pagamentos</Copyright>
-    <PackageTags>rabbitmq queue amqp worker workflow stone</PackageTags>
+    <PackageTags>rabbitmq queue amqp client worker workflow stone</PackageTags>
     <RepositoryUrl>https://github.com/stone-payments/rabbitmq-abstraction</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/stone-payments/rabbitmq-abstraction</PackageProjectUrl>
     <PackageIconUrl>http://www.stone.com.br/img/simbolo-stone.png</PackageIconUrl>
   </PropertyGroup>
 

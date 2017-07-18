@@ -57,9 +57,14 @@ namespace RabbitMQ.Abstraction.Messaging
                 cancellationToken);
         }
 
-        public void Stop()
+        public async Task Stop()
         {
             _cancellationTokenSource.Cancel();
+
+            while (_consumerWorkersCount > 0)
+            {
+                await Task.Delay(1);
+            }
         }
 
         public uint GetMessageCount()

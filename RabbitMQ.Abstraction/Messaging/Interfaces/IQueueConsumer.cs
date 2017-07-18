@@ -8,7 +8,7 @@ namespace RabbitMQ.Abstraction.Messaging.Interfaces
     {
         Task StartAsync(CancellationToken cancellationToken);
 
-        void Stop();
+        Task Stop();
 
         uint GetMessageCount();
 

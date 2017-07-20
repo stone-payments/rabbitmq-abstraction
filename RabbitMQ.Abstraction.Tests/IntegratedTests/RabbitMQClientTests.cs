@@ -3,18 +3,18 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using NUnit.Framework;
 using RabbitMQ.Abstraction.Messaging;
 using RabbitMQ.Abstraction.ProcessingWorkers;
 using RabbitMQ.Client;
 using Shouldly;
+using Xunit;
 
-namespace RabbitMQ.Abstraction.Tests
+namespace RabbitMQ.Abstraction.Tests.IntegratedTests
 {
-    [TestFixture]
-    public class IntegrationTest
+    
+    public class RabbitMQClientTests
     {
-        [Test]
+        [Fact]
         public async Task CreatePublishAndConsume()
         {
             var connectionFactory = CreateConnectionFactory();
@@ -48,7 +48,7 @@ namespace RabbitMQ.Abstraction.Tests
             }
         }
 
-        [Test]
+        [Fact]
         public async Task CreateBatchPublishAndConsume()
         {
             var connectionFactory = CreateConnectionFactory();
@@ -89,7 +89,7 @@ namespace RabbitMQ.Abstraction.Tests
             }
         }
 
-        [Test]
+        [Fact]
         public async Task AdvancedCreatePublishAndConsume()
         {
             var connectionFactory = CreateConnectionFactory();
@@ -123,7 +123,7 @@ namespace RabbitMQ.Abstraction.Tests
             }
         }
 
-        [Test]
+        [Fact]
         public async Task AdvancedCreateBatchPublishAndConsume()
         {
             var connectionFactory = CreateConnectionFactory();
@@ -164,7 +164,7 @@ namespace RabbitMQ.Abstraction.Tests
             }
         }
 
-        [Test]
+        [Fact]
         public async Task ConsumerScaling()
         {
             var connectionFactory = CreateConnectionFactory();
@@ -207,7 +207,7 @@ namespace RabbitMQ.Abstraction.Tests
             }
         }
 
-        [Test]
+        [Fact]
         public async Task DelayedPublish()
         {
             var connectionFactory = CreateConnectionFactory();

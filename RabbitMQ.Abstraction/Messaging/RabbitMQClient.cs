@@ -1,14 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
 using RabbitMQ.Abstraction.Interfaces;
 using RabbitMQ.Abstraction.Logging.Interfaces;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
-using RabbitMQ.Abstraction.Serialization;
 using RabbitMQ.Abstraction.Serialization.Interfaces;
 using RabbitMQ.Client;
+using JsonSerializer = RabbitMQ.Abstraction.Serialization.JsonSerializer;
 
 namespace RabbitMQ.Abstraction.Messaging
 {
@@ -19,6 +22,8 @@ namespace RabbitMQ.Abstraction.Messaging
         private readonly IErrorLogger _errorLogger;
 
         private readonly RabbitMQConnectionPool _connectionPool;
+
+        private readonly HttpClient _httpClient;
 
         private readonly Regex _connectionStringPattern =
             new Regex(@"^(?<user>.+):(?<password>.+)@(?<host>.+):(?<port>[0-9]{1,5})/(?<vhost>.+)$");
@@ -47,6 +52,11 @@ namespace RabbitMQ.Abstraction.Messaging
             _connectionPool = new RabbitMQConnectionPool(connectionFactory);
             _serializer = serializer ?? new JsonSerializer();
             _errorLogger = errorLogger;
+
+            _httpClient = new HttpClient
+            {
+                BaseAddress = new Uri($"{match.Groups["host"].Value}:1{match.Groups["port"].Value}/api"),
+            };
         }
 
         public RabbitMQClient(string hostName, int port, string userName, string password, string virtualHost,
@@ -64,6 +74,11 @@ namespace RabbitMQ.Abstraction.Messaging
             _connectionPool = new RabbitMQConnectionPool(connectionFactory);
             _serializer = serializer ?? new JsonSerializer();
             _errorLogger = errorLogger;
+
+            _httpClient = new HttpClient
+            {
+                BaseAddress = new Uri($"{hostName}:1{port}/api"),
+            };
         }
 
         public RabbitMQClient(ConnectionFactory connectionFactory, ISerializer serializer = null, IErrorLogger errorLogger = null)
@@ -71,6 +86,11 @@ namespace RabbitMQ.Abstraction.Messaging
             _connectionPool = new RabbitMQConnectionPool(connectionFactory);
             _serializer = serializer ?? new JsonSerializer();
             _errorLogger = errorLogger;
+
+            _httpClient = new HttpClient
+            {
+                BaseAddress = new Uri($"{connectionFactory.HostName}:1{connectionFactory.Port}/api"),
+            };
         }
 
         public RabbitMQClient(RabbitMQConnectionPool connectionPool, ISerializer serializer = null, IErrorLogger errorLogger = null)
@@ -78,6 +98,11 @@ namespace RabbitMQ.Abstraction.Messaging
             _connectionPool = connectionPool;
             _serializer = serializer ?? new JsonSerializer();
             _errorLogger = errorLogger;
+
+            _httpClient = new HttpClient
+            {
+                BaseAddress = new Uri($"{connectionPool.ConnectionFactory.HostName}:1{connectionPool.ConnectionFactory.Port}/api"),
+            };
         }
 
         public void Publish<T>(string exchangeName, string routingKey, T content)
@@ -268,6 +293,29 @@ namespace RabbitMQ.Abstraction.Messaging
 
                 return queueDeclareOk.ConsumerCount;
             }
+        }
+
+        public async Task<bool> VirtualHostDeclare(string virtualHostname)
+        {
+            var response = await _httpClient.PutAsync($"/vhosts/{virtualHostname}", new StringContent(""));
+
+            return response.IsSuccessStatusCode;
+        }
+
+        public async Task<bool> GrantPermissions(string virtualHostName, string userName, VirtualHostUserPermission permissions)
+        {
+            var response = await _httpClient.PutAsync($"/permissions/{virtualHostName}/{userName}",
+                new StringContent(JsonConvert.SerializeObject(permissions)));
+
+            return response.IsSuccessStatusCode;
+        }
+
+        public async Task<bool> PolicyDeclare(string virtualHostName, string policyName, VirtualHostPolicy policy)
+        {
+            var response = await _httpClient.PutAsync($"/policies/{virtualHostName}/{policyName}",
+                new StringContent(JsonConvert.SerializeObject(policy)));
+
+            return response.IsSuccessStatusCode;
         }
 
         public IQueueConsumer GetConsumer<T>(string queueName, IConsumerCountManager consumerCountManager, 

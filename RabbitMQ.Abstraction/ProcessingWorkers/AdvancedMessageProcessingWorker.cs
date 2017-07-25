@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using RabbitMQ.Abstraction.Interfaces;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 
 namespace RabbitMQ.Abstraction.ProcessingWorkers
@@ -21,7 +22,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
         public AdvancedMessageProcessingWorker(IQueueClient queueClient, string queueName, Action<T> callbackAction, 
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue, 
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, 
-            ConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
             : base(queueClient, queueName, exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds, 
             consumerCountManager, messageRejectionHandler)
         {
@@ -45,7 +46,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             string queueName, Action<T> callbackAction, CancellationToken cancellationToken,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, 
-            ConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
         {
             var instance = new AdvancedMessageProcessingWorker<T>(queueClient, queueName, callbackAction, 
                 exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds, consumerCountManager, 

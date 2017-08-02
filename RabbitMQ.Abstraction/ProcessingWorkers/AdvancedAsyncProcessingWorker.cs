@@ -7,24 +7,30 @@ using RabbitMQ.Abstraction.Messaging.Interfaces;
 
 namespace RabbitMQ.Abstraction.ProcessingWorkers
 {
-    public class AdvancedAsyncMessageProcessingWorker<T> : AbstractAdvancedMessageProcessingWorker<T> where T : class
+    public class AdvancedAsyncProcessingWorker<T> : AbstractAdvancedProcessingWorker<T> where T : class
     {
         private readonly Func<T, CancellationToken, Task> _callbackFunc;
 
         private readonly TimeSpan _processingTimeout;
 
-        public AdvancedAsyncMessageProcessingWorker(IQueueConsumer consumer, 
-            Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout,
+        private readonly Func<IEnumerable<T>, CancellationToken, Task> _batchCallbackFunc;
+
+        private readonly ushort _batchSize;
+
+        public AdvancedAsyncProcessingWorker(IQueueConsumer consumer, 
+            Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout, Func<IEnumerable<T>, CancellationToken, Task> batchCallbackFunc = null, ushort batchSize = 1,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue, 
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0)
             : base(consumer, exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds)
         {
             _callbackFunc = callbackFunc;
+            _batchCallbackFunc = batchCallbackFunc;
             _processingTimeout = processingTimeout;
+            _batchSize = batchSize;
         }
 
-        public AdvancedAsyncMessageProcessingWorker(IQueueClient queueClient, string queueName, 
-            Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout,
+        public AdvancedAsyncProcessingWorker(IQueueClient queueClient, string queueName, 
+            Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout, Func<IEnumerable<T>, CancellationToken, Task> batchCallbackFunc = null, ushort batchSize = 1,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue, 
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, 
             IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
@@ -32,16 +38,18 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             consumerCountManager, messageRejectionHandler)
         {
             _callbackFunc = callbackFunc;
+            _batchCallbackFunc = batchCallbackFunc;
             _processingTimeout = processingTimeout;
+            _batchSize = batchSize;
         }
 
-        public static async Task<AdvancedAsyncMessageProcessingWorker<T>> CreateAndStartAsync(IQueueConsumer consumer,
+        public static async Task<AdvancedAsyncProcessingWorker<T>> CreateAndStartAsync(IQueueConsumer consumer,
             Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout, 
-            CancellationToken cancellationToken,
+            CancellationToken cancellationToken, Func<IEnumerable<T>, CancellationToken, Task> batchCallbackFunc = null, ushort batchSize = 1,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0)
         {
-            var instance = new AdvancedAsyncMessageProcessingWorker<T>(consumer, callbackFunc, processingTimeout,
+            var instance = new AdvancedAsyncProcessingWorker<T>(consumer, callbackFunc, processingTimeout, batchCallbackFunc, batchSize,
             exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds);
 
             await instance.StartAsync(cancellationToken).ConfigureAwait(false);
@@ -49,15 +57,15 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             return instance;
         }
 
-        public static async Task<AdvancedAsyncMessageProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient, 
+        public static async Task<AdvancedAsyncProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient, 
             string queueName, Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout, 
-            CancellationToken cancellationToken, 
+            CancellationToken cancellationToken, Func<IEnumerable<T>, CancellationToken, Task> batchCallbackFunc = null, ushort batchSize = 1,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, 
             IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
         {
-            var instance = new AdvancedAsyncMessageProcessingWorker<T>(queueClient, queueName, callbackFunc, 
-                processingTimeout, exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds, 
+            var instance = new AdvancedAsyncProcessingWorker<T>(queueClient, queueName, callbackFunc, 
+                processingTimeout, batchCallbackFunc, batchSize, exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds, 
                 consumerCountManager, messageRejectionHandler);
 
             await instance.StartAsync(cancellationToken).ConfigureAwait(false);
@@ -83,6 +91,35 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
 
                 return false;
             }
+        }
+
+        protected override async Task<bool> TryInvokeBatchAsync(IEnumerable<T> batch, List<Exception> exceptions, CancellationToken cancellationToken)
+        {
+            if(_batchCallbackFunc == null)
+            {
+                throw new Exception("Undefined batch callback function");
+            }
+
+            try
+            {
+                var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                tokenSource.CancelAfter(_processingTimeout);
+
+                await _batchCallbackFunc(batch, tokenSource.Token).ConfigureAwait(false);
+
+                return true;
+            }
+            catch (Exception exception)
+            {
+                exceptions.Add(exception);
+
+                return false;
+            }
+        }
+
+        public override ushort GetBatchSize()
+        {
+            return _batchSize;
         }
     }
 }

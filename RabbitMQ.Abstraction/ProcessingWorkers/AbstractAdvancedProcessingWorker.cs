@@ -9,7 +9,7 @@ using RabbitMQ.Abstraction.Messaging.Interfaces;
 
 namespace RabbitMQ.Abstraction.ProcessingWorkers
 {
-    public abstract class AbstractAdvancedMessageProcessingWorker<T> : AbstractSimpleMessageProcessingWorker<T> where T : class
+    public abstract class AbstractAdvancedProcessingWorker<T> : AbstractSimpleProcessingWorker<T> where T : class
     {
         protected readonly int InvokeRetryCount;
 
@@ -17,7 +17,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
 
         protected readonly ExceptionHandlingStrategy ExceptionHandlingStrategy;
 
-        protected AbstractAdvancedMessageProcessingWorker(IQueueConsumer consumer, 
+        protected AbstractAdvancedProcessingWorker(IQueueConsumer consumer, 
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue, 
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0)
             : base(consumer)
@@ -27,7 +27,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             ExceptionHandlingStrategy = exceptionHandlingStrategy;
         }
 
-        protected AbstractAdvancedMessageProcessingWorker(IQueueClient queueClient, string queueName, 
+        protected AbstractAdvancedProcessingWorker(IQueueClient queueClient, string queueName, 
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue, 
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, 
             IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
@@ -41,7 +41,10 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
         protected abstract Task<bool> TryInvokeAsync(T message, List<Exception> exceptions, 
             CancellationToken cancellationToken);
 
-        public override async Task OnMessageAsync(T message, IMessageFeedbackSender feedbackSender, 
+        protected abstract Task<bool> TryInvokeBatchAsync(IEnumerable<T> batch, List<Exception> exceptions,
+            CancellationToken cancellationToken);
+
+        public override async Task OnMessageAsync(T message, IFeedbackSender feedbackSender, 
             CancellationToken cancellationToken)
         {
             var invocationSuccess = false;
@@ -59,6 +62,40 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
                 tryCount++;
 
                 invocationSuccess = await TryInvokeAsync(message, exceptions, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (invocationSuccess)
+            {
+                feedbackSender.Ack();
+            }
+            else if (ShouldRequeue(exceptions))
+            {
+                feedbackSender.Nack(true);
+            }
+            else
+            {
+                feedbackSender.Nack(false);
+            }
+        }
+
+        public override async Task OnBatchAsync(IEnumerable<T> batch, IFeedbackSender feedbackSender,
+            CancellationToken cancellationToken)
+        {
+            var invocationSuccess = false;
+            var exceptions = new List<Exception>();
+
+            var tryCount = 0;
+
+            while (tryCount == 0 || (!invocationSuccess && ShouldRetry(tryCount, exceptions)))
+            {
+                if (tryCount > 0 && InvokeRetryWaitMilliseconds > 0)
+                {
+                    await Task.Delay(InvokeRetryWaitMilliseconds, cancellationToken).ConfigureAwait(false);
+                }
+
+                tryCount++;
+
+                invocationSuccess = await TryInvokeBatchAsync(batch, exceptions, cancellationToken).ConfigureAwait(false);
             }
 
             if (invocationSuccess)

@@ -19,6 +19,10 @@ namespace RabbitMQ.Abstraction.Messaging.Interfaces
             IMessageProcessingWorker<T> messageProcessingWorker, IMessageRejectionHandler messageRejectionHandler) 
             where T : class;
 
+        IQueueConsumer GetBatchConsumer<T>(string queueName, IConsumerCountManager consumerCountManager,
+            IBatchProcessingWorker<T> batchProcessingWorker, IMessageRejectionHandler messageRejectionHandler)
+            where T : class;
+
         void QueueDeclare(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false, 
             IDictionary<string, object> arguments = null);
 

@@ -1,10 +1,8 @@
 ﻿namespace RabbitMQ.Abstraction.Messaging.Interfaces
 {
-    public interface IMessageFeedbackSender
+    public interface IFeedbackSender
     {
-        ulong DeliveryTag { get; }
-
-        bool MessageAcknoledged { get; }
+        bool HasAcknoledged { get; }
 
         void Ack();
 

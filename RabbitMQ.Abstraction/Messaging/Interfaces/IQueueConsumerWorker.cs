@@ -9,9 +9,5 @@ namespace RabbitMQ.Abstraction.Messaging.Interfaces
         bool ModelIsClosed { get; }
 
         Task DoConsumeAsync(CancellationToken cancellationToken);
-
-        void Ack(ulong deliveryTag);
-
-        void Nack(ulong deliveryTag, bool requeue = false);
     }
 }

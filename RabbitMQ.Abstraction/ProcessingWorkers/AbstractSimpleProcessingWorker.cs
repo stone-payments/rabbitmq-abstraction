@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using RabbitMQ.Abstraction.Interfaces;
@@ -6,7 +7,7 @@ using RabbitMQ.Abstraction.Messaging.Interfaces;
 
 namespace RabbitMQ.Abstraction.ProcessingWorkers
 {
-    public abstract class AbstractSimpleMessageProcessingWorker<T> : IMessageProcessingWorker<T>, IDisposable where T : class
+    public abstract class AbstractSimpleProcessingWorker<T> : IMessageProcessingWorker<T>, IBatchProcessingWorker<T>, IDisposable where T : class
     {
         protected IQueueConsumer Consumer;
 
@@ -18,12 +19,12 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
 
         protected readonly IMessageRejectionHandler MessageRejectionHandler;
 
-        protected AbstractSimpleMessageProcessingWorker(IQueueConsumer consumer)
+        protected AbstractSimpleProcessingWorker(IQueueConsumer consumer)
         {
             Consumer = consumer;
         }
 
-        protected AbstractSimpleMessageProcessingWorker(IQueueClient queueClient, string queueName,
+        protected AbstractSimpleProcessingWorker(IQueueClient queueClient, string queueName,
             IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
         {
             QueueClient = queueClient;
@@ -33,12 +34,20 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             MessageRejectionHandler = messageRejectionHandler ?? new MessageDeserializationRejectionHandler(QueueClient);
         }
 
-        public Task StartAsync(CancellationToken cancellationToken)
+        protected Task StartAsync(CancellationToken cancellationToken, bool batched)
         {
             if (Consumer == null)
             {
-                Consumer = QueueClient.GetConsumer(QueueName, ConsumerCountManager, this,
-                    MessageRejectionHandler);
+                if (batched)
+                {
+                    Consumer = QueueClient.GetBatchConsumer(QueueName, ConsumerCountManager, this,
+                        MessageRejectionHandler);
+                }
+                else
+                {
+                    Consumer = QueueClient.GetConsumer(QueueName, ConsumerCountManager, this,
+                        MessageRejectionHandler);
+                }
             }
 
             return Consumer.StartAsync(cancellationToken);
@@ -58,6 +67,10 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             Stop();
         }
 
-        public abstract Task OnMessageAsync(T message, IMessageFeedbackSender feedbackSender, CancellationToken cancellationToken);
+        public abstract Task OnMessageAsync(T message, IFeedbackSender feedbackSender, CancellationToken cancellationToken);
+
+        public abstract Task OnBatchAsync(IEnumerable<T> batch, IFeedbackSender feedbackSender, CancellationToken cancellationToken);
+
+        public abstract ushort GetBatchSize();
     }
 }

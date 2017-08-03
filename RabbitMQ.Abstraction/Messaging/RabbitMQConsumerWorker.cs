@@ -88,35 +88,35 @@ namespace RabbitMQ.Abstraction.Messaging
                         _messageRejectionHandler.OnRejection(deserializationException);
 
                         //Remove message from queue after RejectionHandler dealt with it
-                        Nack(lastResult.DeliveryTag, false);
+                        _model.BasicNack(lastResult.DeliveryTag, false, false);
                     }
 
                     //If message has been successfully deserialized and messageObject is populated
                     if (messageObject != null)
                     {
                         //Create messageFeedbackSender instance with corresponding model and deliveryTag
-                        IMessageFeedbackSender messageFeedbackSender = new RabbitMQMessageFeedbackSender(_model, lastResult.DeliveryTag);
+                        IFeedbackSender feedbackSender = new RabbitMQMessageFeedbackSender(_model, lastResult.DeliveryTag);
 
                         try
                         {
                             //Call given messageProcessingWorker's OnMessage method to proceed with message processing
-                            await _messageProcessingWorker.OnMessageAsync(messageObject, messageFeedbackSender, 
+                            await _messageProcessingWorker.OnMessageAsync(messageObject, feedbackSender, 
                                 cancellationToken).ConfigureAwait(false);
 
                             //If message has been processed with no errors but no Acknoledgement has been given
-                            if (!messageFeedbackSender.MessageAcknoledged)
+                            if (!feedbackSender.HasAcknoledged)
                             {
                                 //Acknoledge message
-                                _subscription.Ack();
+                                feedbackSender.Ack();
                             }
                         }
                         catch (Exception)
                         {
                             //If something went wrong with message processing and message hasn't been acknoledged yet
-                            if (!messageFeedbackSender.MessageAcknoledged)
+                            if (!feedbackSender.HasAcknoledged)
                             {
                                 //Negatively Acknoledge message, asking for requeue
-                                Nack(lastResult.DeliveryTag, true);
+                                feedbackSender.Nack(true);
                             }
 
                             //Rethrow caught Exception
@@ -140,16 +140,6 @@ namespace RabbitMQ.Abstraction.Messaging
         private static string GetBody(BasicDeliverEventArgs basicDeliverEventArgs)
         {
             return Encoding.UTF8.GetString(basicDeliverEventArgs.Body);
-        }
-
-        public void Ack(ulong deliveryTag)
-        {
-            _model.BasicAck(deliveryTag, false);
-        }
-
-        public void Nack(ulong deliveryTag, bool requeue = false)
-        {
-            _model.BasicNack(deliveryTag, false, requeue);
         }
 
         public void Dispose()

@@ -55,7 +55,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
             _httpClient = new HttpClient
             {
-                BaseAddress = new Uri($"{match.Groups["host"].Value}:1{match.Groups["port"].Value}/api"),
+                BaseAddress = new Uri($"http://{match.Groups["host"].Value}:1{match.Groups["port"].Value}/api"),
             };
         }
 
@@ -77,7 +77,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
             _httpClient = new HttpClient
             {
-                BaseAddress = new Uri($"{hostName}:1{port}/api"),
+                BaseAddress = new Uri($"http://{hostName}:1{port}/api"),
             };
         }
 
@@ -89,7 +89,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
             _httpClient = new HttpClient
             {
-                BaseAddress = new Uri($"{connectionFactory.HostName}:1{connectionFactory.Port}/api"),
+                BaseAddress = new Uri($"http://{connectionFactory.HostName}:1{connectionFactory.Port}/api"),
             };
         }
 
@@ -101,7 +101,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
             _httpClient = new HttpClient
             {
-                BaseAddress = new Uri($"{connectionPool.ConnectionFactory.HostName}:1{connectionPool.ConnectionFactory.Port}/api"),
+                BaseAddress = new Uri($"http://{connectionPool.ConnectionFactory.HostName}:1{connectionPool.ConnectionFactory.Port}/api"),
             };
         }
 
@@ -328,6 +328,20 @@ namespace RabbitMQ.Abstraction.Messaging
                 serializer: _serializer,
                 errorLogger: _errorLogger,
                 messageProcessingWorker: messageProcessingWorker,
+                consumerCountManager: consumerCountManager,
+                messageRejectionHandler: messageRejectionHandler);
+        }
+
+        public IQueueConsumer GetBatchConsumer<T>(string queueName, IConsumerCountManager consumerCountManager,
+            IBatchProcessingWorker<T> batchProcessingWorker, IMessageRejectionHandler messageRejectionHandler)
+            where T : class
+        {
+            return new RabbitMQBatchConsumer<T>(
+                connectionPool: _connectionPool,
+                queueName: queueName,
+                serializer: _serializer,
+                errorLogger: _errorLogger,
+                batchProcessingWorker: batchProcessingWorker,
                 consumerCountManager: consumerCountManager,
                 messageRejectionHandler: messageRejectionHandler);
         }

@@ -29,7 +29,7 @@ namespace RabbitMQ.Abstraction.Tests
 
                 var receivedMessage = "";
 
-                var worker = await SimpleMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
+                var worker = await SimpleProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
                     message => DoSomething(message, out receivedMessage), CancellationToken.None);
 
                 const int timeLimit = 10000;
@@ -67,10 +67,92 @@ namespace RabbitMQ.Abstraction.Tests
 
                 var receivedMessages = new ConcurrentBag<string>();
 
-                var worker = await SimpleMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
+                var worker = await SimpleProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
                     message => BatchDoSomething(message, receivedMessages), CancellationToken.None);
 
                 const int timeLimit = 10000;
+
+                var elapsedTime = 0;
+
+                while (receivedMessages.Count < messageAmount && elapsedTime < timeLimit)
+                {
+                    await Task.Delay(100);
+                    elapsedTime += 100;
+                }
+
+                worker.Stop();
+
+                queueClient.QueueDelete(queueName);
+
+                receivedMessages.Count.ShouldBe(messages.Count);
+                receivedMessages.ShouldBeSubsetOf(messages);
+            }
+        }
+
+        [Test]
+        public async Task CreateBatchPublishAndBatchConsume()
+        {
+            var connectionFactory = CreateConnectionFactory();
+
+            const int messageAmount = 100000;
+
+            var messages = GenerateMessages(messageAmount);
+
+            using (var queueClient = new RabbitMQClient(connectionFactory))
+            {
+                var queueName = $"IntegratedTestQueue_{Guid.NewGuid()}";
+
+                queueClient.EnsureQueueExists(queueName);
+
+                queueClient.BatchPublish("", queueName, messages);
+
+                var receivedMessages = new ConcurrentBag<string>();
+
+                var worker = await SimpleProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
+                    batch => BatchDoSomething(batch, receivedMessages), 200, CancellationToken.None, new ConsumerCountManager(1, 1));
+
+                const int timeLimit = 30000;
+
+                var elapsedTime = 0;
+
+                while (receivedMessages.Count < messageAmount && elapsedTime < timeLimit)
+                {
+                    await Task.Delay(100);
+                    elapsedTime += 100;
+                }
+
+                worker.Stop();
+
+                queueClient.QueueDelete(queueName);
+
+                receivedMessages.Count.ShouldBe(messages.Count);
+                receivedMessages.ShouldBeSubsetOf(messages);
+            }
+        }
+
+        [Test]
+        public async Task CreateBatchPublishAndBatchConsumePartialNack()
+        {
+            var connectionFactory = CreateConnectionFactory();
+
+            const int messageAmount = 200000;
+
+            var messages = GenerateMessages(messageAmount);
+
+            using (var queueClient = new RabbitMQClient(connectionFactory))
+            {
+                var queueName = $"IntegratedTestQueue_{Guid.NewGuid()}";
+                
+                queueClient.EnsureQueueExists(queueName);
+
+                queueClient.BatchPublish("", queueName, messages);
+
+                var receivedMessages = new ConcurrentBag<string>();
+
+                var worker = await SimpleProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
+                    batch => BatchDoSomethingOrFail(batch, receivedMessages), 200, CancellationToken.None, new ConsumerCountManager(1, 1));
+
+                const int timeLimit = 60000;
 
                 var elapsedTime = 0;
 
@@ -104,7 +186,7 @@ namespace RabbitMQ.Abstraction.Tests
 
                 var receivedMessage = "";
 
-                var worker = await AdvancedMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
+                var worker = await AdvancedProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
                     message => DoSomething(message, out receivedMessage), CancellationToken.None);
 
                 const int timeLimit = 10000;
@@ -142,7 +224,7 @@ namespace RabbitMQ.Abstraction.Tests
 
                 var receivedMessages = new ConcurrentBag<string>();
 
-                var worker = await AdvancedMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
+                var worker = await AdvancedProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
                     message => BatchDoSomething(message, receivedMessages), CancellationToken.None);
 
                 const int timeLimit = 10000;
@@ -181,7 +263,7 @@ namespace RabbitMQ.Abstraction.Tests
 
                 queueClient.BatchPublish("", queueName, messages);
 
-                var worker = await SimpleMessageProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
+                var worker = await SimpleProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
                             async message => await Task.Delay(20), CancellationToken.None, new ConsumerCountManager(4, 50, 1000, 2000));
 
                 const int timeLimit = 60000;
@@ -258,6 +340,27 @@ namespace RabbitMQ.Abstraction.Tests
         private static void BatchDoSomething(string message, ConcurrentBag<string> receivedMessages)
         {
             receivedMessages.Add(message);
+        }
+
+        private static void BatchDoSomething(IEnumerable<string> messages, ConcurrentBag<string> receivedMessages)
+        {
+            foreach (var message in messages)
+            {
+                receivedMessages.Add(message);
+            }
+        }
+
+        private static void BatchDoSomethingOrFail(IEnumerable<string> messages, ConcurrentBag<string> receivedMessages)
+        {
+            if (new Random().Next(0, 10) == 0)
+            {
+                throw new Exception();
+            }
+
+            foreach (var message in messages)
+            {
+                receivedMessages.Add(message);
+            }
         }
 
         private static List<string> GenerateMessages(int amount)

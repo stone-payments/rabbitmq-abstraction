@@ -1,17 +1,22 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Newtonsoft.Json;
 
 namespace RabbitMQ.Abstraction
 {
     public class VirtualHostPolicy
     {
+        [JsonProperty(PropertyName = "pattern")]
         public string Pattern { get; }
 
+        [JsonProperty(PropertyName = "definition")]
         public Dictionary<string, string> Definition { get; }
 
+        [JsonProperty(PropertyName = "priority")]
         public byte Priority { get; }
 
+        [JsonProperty(PropertyName = "apply-to")]
         public PolicyScope ApplyTo { get; }
 
         public VirtualHostPolicy(string pattern, Dictionary<string, string> definition, byte priority = 0B0, PolicyScope applyTo = null)

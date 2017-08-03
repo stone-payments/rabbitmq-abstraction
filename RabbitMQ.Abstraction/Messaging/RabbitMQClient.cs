@@ -55,7 +55,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
             _httpClient = new HttpClient
             {
-                BaseAddress = new Uri($"http://{match.Groups["host"].Value}:1{match.Groups["port"].Value}/api"),
+                BaseAddress = new Uri($"http://{match.Groups["user"].Value}:{match.Groups["password"].Value}@{match.Groups["host"].Value}:1{match.Groups["port"].Value}/api"),
             };
         }
 
@@ -77,7 +77,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
             _httpClient = new HttpClient
             {
-                BaseAddress = new Uri($"http://{hostName}:1{port}/api"),
+                BaseAddress = new Uri($"http://{userName}:{password}@{hostName}:1{port}/api"),
             };
         }
 
@@ -89,7 +89,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
             _httpClient = new HttpClient
             {
-                BaseAddress = new Uri($"http://{connectionFactory.HostName}:1{connectionFactory.Port}/api"),
+                BaseAddress = new Uri($"http://{connectionFactory.UserName}:{connectionFactory.Password}@{connectionFactory.HostName}:1{connectionFactory.Port}/api"),
             };
         }
 
@@ -101,7 +101,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
             _httpClient = new HttpClient
             {
-                BaseAddress = new Uri($"http://{connectionPool.ConnectionFactory.HostName}:1{connectionPool.ConnectionFactory.Port}/api"),
+                BaseAddress = new Uri($"http://{connectionPool.ConnectionFactory.UserName}:{connectionPool.ConnectionFactory.Password}@{connectionPool.ConnectionFactory.HostName}:1{connectionPool.ConnectionFactory.Port}/api"),
             };
         }
 

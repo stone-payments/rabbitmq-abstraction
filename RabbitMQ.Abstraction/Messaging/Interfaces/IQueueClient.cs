@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using RabbitMQ.Abstraction.Interfaces;
 
 namespace RabbitMQ.Abstraction.Messaging.Interfaces
@@ -39,5 +40,11 @@ namespace RabbitMQ.Abstraction.Messaging.Interfaces
         uint GetMessageCount(string queueName);
 
         uint GetConsumerCount(string queueName);
+
+        Task<bool> VirtualHostDeclare(string virtualHostname);
+
+        Task<bool> GrantPermissions(string virtualHostName, string userName, VirtualHostUserPermission permissions);
+
+        Task<bool> PolicyDeclare(string virtualHostName, string policyName, VirtualHostPolicy policy);
     }
 }

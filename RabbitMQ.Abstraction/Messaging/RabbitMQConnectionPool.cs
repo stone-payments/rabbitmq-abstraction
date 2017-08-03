@@ -7,7 +7,7 @@ namespace RabbitMQ.Abstraction.Messaging
 {
     public class RabbitMQConnectionPool : IDisposable
     {
-        private readonly ConnectionFactory _connectionFactory;
+        public readonly ConnectionFactory ConnectionFactory;
 
         private readonly List<IConnection> _connections;
 
@@ -15,7 +15,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public RabbitMQConnectionPool(ConnectionFactory connectionFactory)
         {
-            _connectionFactory = connectionFactory;
+            ConnectionFactory = connectionFactory;
 
             _connections = new List<IConnection>();
 
@@ -84,7 +84,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
                 for (var i = 0; i < newConnectionsNeeded; i++)
                 {
-                    _connections.Add(_connectionFactory.CreateConnection());
+                    _connections.Add(ConnectionFactory.CreateConnection());
                 }
             }
         }

@@ -6,9 +6,9 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using RabbitMQ.Abstraction.Interfaces;
-using RabbitMQ.Abstraction.Logging.Interfaces;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 using RabbitMQ.Abstraction.Serialization.Interfaces;
 using RabbitMQ.Client;
@@ -20,7 +20,7 @@ namespace RabbitMQ.Abstraction.Messaging
     {
         private readonly ISerializer _serializer;
 
-        private readonly IErrorLogger _errorLogger;
+        private readonly ILogger _logger;
 
         private readonly RabbitMQConnectionPool _connectionPool;
 
@@ -34,8 +34,8 @@ namespace RabbitMQ.Abstraction.Messaging
         /// </summary>
         /// <param name="connectionString">Format {user}:{password}@{host}:{port}/{virtualHost}</param>
         /// <param name="serializer"></param>
-        /// <param name="errorLogger"></param>
-        public RabbitMQClient(string connectionString, ISerializer serializer = null, IErrorLogger errorLogger = null)
+        /// <param name="logger"></param>
+        public RabbitMQClient(string connectionString, ISerializer serializer = null, ILogger logger = null)
         {
             var match = _connectionStringPattern.Match(connectionString);
             if (!match.Success)
@@ -52,13 +52,13 @@ namespace RabbitMQ.Abstraction.Messaging
 
             _connectionPool = new RabbitMQConnectionPool(connectionFactory);
             _serializer = serializer ?? new JsonSerializer();
-            _errorLogger = errorLogger;
+            _logger = logger;
 
             _httpClient = GetHttpClient(match.Groups["user"].Value, match.Groups["password"].Value, match.Groups["host"].Value, int.Parse(match.Groups["port"].Value));
         }
 
         public RabbitMQClient(string hostName, int port, string userName, string password, string virtualHost,
-            ISerializer serializer = null, IErrorLogger errorLogger = null)
+            ISerializer serializer = null, ILogger logger = null)
         {
             var connectionFactory = new ConnectionFactory
             {
@@ -71,25 +71,25 @@ namespace RabbitMQ.Abstraction.Messaging
 
             _connectionPool = new RabbitMQConnectionPool(connectionFactory);
             _serializer = serializer ?? new JsonSerializer();
-            _errorLogger = errorLogger;
+            _logger = logger;
 
             _httpClient = GetHttpClient(userName, password, hostName, port);
         }
 
-        public RabbitMQClient(ConnectionFactory connectionFactory, ISerializer serializer = null, IErrorLogger errorLogger = null)
+        public RabbitMQClient(ConnectionFactory connectionFactory, ISerializer serializer = null, ILogger logger = null)
         {
             _connectionPool = new RabbitMQConnectionPool(connectionFactory);
             _serializer = serializer ?? new JsonSerializer();
-            _errorLogger = errorLogger;
+            _logger = logger;
 
             _httpClient = GetHttpClient(connectionFactory.UserName, connectionFactory.Password, connectionFactory.HostName, connectionFactory.Port);
         }
 
-        public RabbitMQClient(RabbitMQConnectionPool connectionPool, ISerializer serializer = null, IErrorLogger errorLogger = null)
+        public RabbitMQClient(RabbitMQConnectionPool connectionPool, ISerializer serializer = null, ILogger logger = null)
         {
             _connectionPool = connectionPool;
             _serializer = serializer ?? new JsonSerializer();
-            _errorLogger = errorLogger;
+            _logger = logger;
 
             _httpClient = GetHttpClient(connectionPool.ConnectionFactory.UserName, connectionPool.ConnectionFactory.Password, connectionPool.ConnectionFactory.HostName, connectionPool.ConnectionFactory.Port);
         }
@@ -327,7 +327,7 @@ namespace RabbitMQ.Abstraction.Messaging
                 connectionPool: _connectionPool,
                 queueName: queueName,
                 serializer: _serializer,
-                errorLogger: _errorLogger,
+                logger: _logger,
                 messageProcessingWorker: messageProcessingWorker,
                 consumerCountManager: consumerCountManager,
                 messageRejectionHandler: messageRejectionHandler);
@@ -341,7 +341,7 @@ namespace RabbitMQ.Abstraction.Messaging
                 connectionPool: _connectionPool,
                 queueName: queueName,
                 serializer: _serializer,
-                errorLogger: _errorLogger,
+                logger: _logger,
                 batchProcessingWorker: batchProcessingWorker,
                 consumerCountManager: consumerCountManager,
                 messageRejectionHandler: messageRejectionHandler);

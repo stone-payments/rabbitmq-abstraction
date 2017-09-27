@@ -3,18 +3,21 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using NUnit.Framework;
+using Moq;
+using Moq.Protected;
+using RabbitMQ.Abstraction.Interfaces;
 using RabbitMQ.Abstraction.Messaging;
+using RabbitMQ.Abstraction.Messaging.Interfaces;
 using RabbitMQ.Abstraction.ProcessingWorkers;
 using RabbitMQ.Client;
 using Shouldly;
+using Xunit;
 
 namespace RabbitMQ.Abstraction.Tests
 {
-    [TestFixture]
     public class IntegrationTest
     {
-        [Test]
+        [Fact]
         public async Task CreatePublishAndConsume()
         {
             var connectionFactory = CreateConnectionFactory();
@@ -48,7 +51,7 @@ namespace RabbitMQ.Abstraction.Tests
             }
         }
 
-        [Test]
+        [Fact]
         public async Task CreateBatchPublishAndConsume()
         {
             var connectionFactory = CreateConnectionFactory();
@@ -89,7 +92,7 @@ namespace RabbitMQ.Abstraction.Tests
             }
         }
 
-        [Test]
+        [Fact]
         public async Task CreateBatchPublishAndBatchConsume()
         {
             var connectionFactory = CreateConnectionFactory();
@@ -130,7 +133,7 @@ namespace RabbitMQ.Abstraction.Tests
             }
         }
 
-        [Test]
+        [Fact]
         public async Task CreateBatchPublishAndBatchConsumePartialNack()
         {
             var connectionFactory = CreateConnectionFactory();
@@ -171,7 +174,7 @@ namespace RabbitMQ.Abstraction.Tests
             }
         }
 
-        [Test]
+        [Fact]
         public async Task AdvancedCreatePublishAndConsume()
         {
             var connectionFactory = CreateConnectionFactory();
@@ -205,7 +208,7 @@ namespace RabbitMQ.Abstraction.Tests
             }
         }
 
-        [Test]
+        [Fact]
         public async Task AdvancedCreateBatchPublishAndConsume()
         {
             var connectionFactory = CreateConnectionFactory();
@@ -246,7 +249,7 @@ namespace RabbitMQ.Abstraction.Tests
             }
         }
 
-        [Test]
+        [Fact]
         public async Task ConsumerScaling()
         {
             var connectionFactory = CreateConnectionFactory();
@@ -289,7 +292,7 @@ namespace RabbitMQ.Abstraction.Tests
             }
         }
 
-        [Test]
+        [Fact]
         public async Task DelayedPublish()
         {
             var connectionFactory = CreateConnectionFactory();
@@ -320,6 +323,103 @@ namespace RabbitMQ.Abstraction.Tests
             }
         }
 
+        [Fact]
+        public async Task CreateVirtualHost()
+        {
+            var connectionFactory = CreateConnectionFactory();
+
+            using (var queueClient = new RabbitMQClient(connectionFactory))
+            {
+                var virtualHostName = $"IntegratedTestVhost_{Guid.NewGuid()}";
+                
+                var success = await queueClient.VirtualHostDeclare(virtualHostName);
+
+                success.ShouldBeTrue();
+            }
+        }
+
+        [Fact]
+        public async Task CreateVirtualHostAndGrantPermission()
+        {
+            var connectionFactory = CreateConnectionFactory();
+
+            using (var queueClient = new RabbitMQClient(connectionFactory))
+            {
+                var virtualHostName = $"IntegratedTestVhost_{Guid.NewGuid()}";
+
+                var success = await queueClient.VirtualHostDeclare(virtualHostName);
+
+                success.ShouldBeTrue();
+
+                success = await queueClient.GrantPermissions(virtualHostName, "guest",
+                    new VirtualHostUserPermission {Configure = ".*", Read = ".*", Write = ".*"});
+
+                success.ShouldBeTrue();
+            }
+        }
+
+        [Fact]
+        public async Task AdvancedAsyncCreatePublishAndConsume()
+        {
+            var connectionFactory = CreateConnectionFactory();
+
+            using (var queueClient = new RabbitMQClient(connectionFactory))
+            {
+                var queueName = $"IntegratedTestQueue_{Guid.NewGuid()}";
+
+                queueClient.EnsureQueueExists(queueName, autoDelete: true);
+
+                queueClient.Publish("", queueName, "TestValue123");
+
+                var receivedMessage = "";
+
+                var worker = await AdvancedAsyncProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
+                    DoNothingAsync, TimeSpan.FromDays(1), CancellationToken.None);
+
+                const int timeLimit = 10000;
+
+                var elapsedTime = 0;
+
+                while (receivedMessage == "" && elapsedTime < timeLimit)
+                {
+                    await Task.Delay(100);
+                    elapsedTime += 100;
+                }
+
+                worker.Stop();
+
+                receivedMessage.ShouldBe("TestValue123");
+            }
+        }
+
+        [Fact]
+        public async Task AutoAck()
+        {
+            var queueConsumerMock = new Mock<RabbitMQConsumer<string>>();
+
+            var consumerWorkerMock = new Mock<RabbitMQConsumerWorker<string>>();
+
+            queueConsumerMock.Setup(c => c.StartAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+            queueConsumerMock.Protected().Setup<IQueueConsumerWorker>("CreateNewConsumerWorker")
+                .Returns(consumerWorkerMock.Object);
+
+            consumerWorkerMock.Setup(w => w.DoConsumeAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+            var queueClientMock = new Mock<IQueueClient>();
+            queueClientMock.Setup(m => m.GetConsumer(It.IsAny<string>(), It.IsAny<IConsumerCountManager>(),
+                    It.IsAny<IMessageProcessingWorker<string>>(), It.IsAny<IMessageRejectionHandler>()))
+                .Returns(queueConsumerMock.Object);
+            
+            var queueName = $"IntegratedTestQueue_{Guid.NewGuid()}";
+
+            var worker = await AdvancedAsyncProcessingWorker<string>.CreateAndStartAsync(queueClientMock.Object, queueName,
+                DoNothingAsync, TimeSpan.FromDays(1), CancellationToken.None);
+
+            //queueConsumerMock
+
+            worker.Stop();
+        }
+
         private static ConnectionFactory CreateConnectionFactory()
         {
             return new ConnectionFactory
@@ -328,7 +428,7 @@ namespace RabbitMQ.Abstraction.Tests
                 Port = 5672,
                 UserName = "guest",
                 Password = "guest",
-                VirtualHost = "testing"
+                VirtualHost = "/"
             };
         }
 
@@ -361,6 +461,11 @@ namespace RabbitMQ.Abstraction.Tests
             {
                 receivedMessages.Add(message);
             }
+        }
+
+        private static Task DoNothingAsync(string message, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
         }
 
         private static List<string> GenerateMessages(int amount)

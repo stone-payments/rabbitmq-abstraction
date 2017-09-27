@@ -21,7 +21,10 @@
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
-    <PackageReference Include="RabbitMQ.Client" Version="5.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\rabbitmq-dotnet-client\projects\client\RabbitMQ.Client\RabbitMQ.Client.csproj" />
   </ItemGroup>
 
 </Project>

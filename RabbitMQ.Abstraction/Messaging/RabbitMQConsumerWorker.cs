@@ -110,8 +110,10 @@ namespace RabbitMQ.Abstraction.Messaging
                                 feedbackSender.Ack();
                             }
                         }
-                        catch (Exception)
+                        catch (Exception e)
                         {
+                            Console.WriteLine(e.Message);
+
                             //If something went wrong with message processing and message hasn't been acknoledged yet
                             if (!feedbackSender.HasAcknoledged)
                             {

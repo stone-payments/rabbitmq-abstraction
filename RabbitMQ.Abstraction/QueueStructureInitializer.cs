@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 
 namespace RabbitMQ.Abstraction
@@ -19,7 +20,7 @@ namespace RabbitMQ.Abstraction
         {
             _queueClient.ExchangeDeclare(_exchangeName);
 
-            foreach (var queueBinding in queueBindings)
+            Parallel.ForEach(queueBindings, queueBinding =>
             {
                 //Error queue
                 var errorQueueName = $"{queueBinding.Queue}.error";
@@ -42,7 +43,7 @@ namespace RabbitMQ.Abstraction
                 //Log queue
                 var logQueueName = $"{queueBinding.Queue}.log";
                 QueueDeclareAndBind(logQueueName, processRouteName);
-            }
+            });
         }
 
         protected void QueueDeclareAndBind(string queueName, string routeName, string deadLetterRouteName = null)

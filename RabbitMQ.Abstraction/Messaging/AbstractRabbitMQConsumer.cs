@@ -1,8 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using RabbitMQ.Abstraction.Interfaces;
-using RabbitMQ.Abstraction.Logging.Interfaces;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 using RabbitMQ.Abstraction.Serialization;
 using RabbitMQ.Abstraction.Serialization.Interfaces;
@@ -18,7 +19,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         protected readonly ISerializer Serializer;
 
-        private readonly IErrorLogger _errorLogger;
+        private readonly ILogger _logger;
 
         protected readonly IMessageRejectionHandler MessageRejectionHandler;
 
@@ -32,13 +33,13 @@ namespace RabbitMQ.Abstraction.Messaging
         private readonly object _scalingLock = new object();
 
         protected AbstractRabbitMQConsumer(RabbitMQConnectionPool connectionPool, string queueName, 
-            ISerializer serializer = null, IErrorLogger errorLogger = null, 
+            ISerializer serializer = null, ILogger logger = null, 
             IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
         {
             ConnectionPool = connectionPool;
             QueueName = queueName;
             Serializer = serializer ?? new JsonSerializer();
-            _errorLogger = errorLogger;
+            _logger = logger;
             _consumerCountManager = consumerCountManager ?? new ConsumerCountManager();
             MessageRejectionHandler = messageRejectionHandler ?? new MessageDeserializationRejectionHandler(connectionPool);
 
@@ -109,8 +110,12 @@ namespace RabbitMQ.Abstraction.Messaging
                                 Interlocked.Increment(ref _scalingAmount);
                                 Interlocked.Decrement(ref _consumerWorkersCount);
 
-                                _errorLogger?.LogError("RabbitMQ.AdvancedConsumer", exception.ToString(),
-                                    "QueueName", QueueName);
+                                _logger?.LogError($"{exception.Message}\n{exception.StackTrace}",
+                                    new Dictionary<string, string>
+                                        {
+                                            {"RabbitMQ.AdvancedConsumer", exception.ToString()},
+                                            {"QueueName", QueueName}
+                                        });
                             }
                         }, cancellationToken);
                     }

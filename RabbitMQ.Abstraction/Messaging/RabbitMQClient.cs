@@ -48,6 +48,8 @@ namespace RabbitMQ.Abstraction.Messaging
                 UserName = match.Groups["user"].Value,
                 Password = match.Groups["password"].Value,
                 VirtualHost = match.Groups["vhost"].Value,
+                AutomaticRecoveryEnabled = true,
+
             };
 
             _connectionPool = new RabbitMQConnectionPool(connectionFactory);
@@ -66,7 +68,8 @@ namespace RabbitMQ.Abstraction.Messaging
                 Port = port,
                 UserName = userName,
                 Password = password,
-                VirtualHost = virtualHost
+                VirtualHost = virtualHost,
+                AutomaticRecoveryEnabled = true
             };
 
             _connectionPool = new RabbitMQConnectionPool(connectionFactory);

@@ -54,11 +54,11 @@ namespace RabbitMQ.Abstraction
             {
                 queueArguments.Add("x-dead-letter-exchange", _exchangeName);
                 queueArguments.Add("x-dead-letter-routing-key", deadLetterRouteName);
+            }
 
-                if (lazy)
-                {
-                    queueArguments.Add("x-queue-mode", "lazy");
-                }
+            if (lazy)
+            {
+                queueArguments.Add("x-queue-mode", "lazy");
             }
 
             _queueClient.EnsureQueueExists(queueName, arguments: queueArguments);

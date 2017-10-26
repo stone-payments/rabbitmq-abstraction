@@ -42,11 +42,11 @@ namespace RabbitMQ.Abstraction
 
                 //Log queue
                 var logQueueName = $"{queueBinding.Queue}.log";
-                QueueDeclareAndBind(logQueueName, processRouteName);
+                QueueDeclareAndBind(logQueueName, processRouteName, lazy: true);
             });
         }
 
-        protected void QueueDeclareAndBind(string queueName, string routeName, string deadLetterRouteName = null)
+        protected void QueueDeclareAndBind(string queueName, string routeName, string deadLetterRouteName = null, bool lazy = false)
         {
             var queueArguments = new Dictionary<string, object>();
 
@@ -54,6 +54,11 @@ namespace RabbitMQ.Abstraction
             {
                 queueArguments.Add("x-dead-letter-exchange", _exchangeName);
                 queueArguments.Add("x-dead-letter-routing-key", deadLetterRouteName);
+
+                if (lazy)
+                {
+                    queueArguments.Add("x-queue-mode", "lazy");
+                }
             }
 
             _queueClient.EnsureQueueExists(queueName, arguments: queueArguments);

@@ -6,7 +6,7 @@ namespace RabbitMQ.Abstraction.Messaging.Interfaces
 {
     public interface IQueueConsumer : IDisposable
     {
-        Task StartAsync(CancellationToken cancellationToken);
+        Task<Task> StartAsync(CancellationToken cancellationToken);
 
         Task Stop();
 

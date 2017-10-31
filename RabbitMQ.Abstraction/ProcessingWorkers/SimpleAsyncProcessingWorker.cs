@@ -98,7 +98,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             return instance;
         }
 
-        public Task StartAsync(CancellationToken cancellationToken)
+        public Task<Task> StartAsync(CancellationToken cancellationToken)
         {
             return StartAsync(cancellationToken, _batchCallbackFunc != null);
         }
@@ -107,10 +107,13 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
         {
             try
             {
-                var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                tokenSource.CancelAfter(_processingTimeout);
+                using (var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+                {
+                    tokenSource.CancelAfter(_processingTimeout);
 
-                await _callbackFunc(message, tokenSource.Token).ConfigureAwait(false);
+                    await _callbackFunc(message, tokenSource.Token).ConfigureAwait(false);
+                }
+                
                 feedbackSender.Ack();
             }
             catch (Exception)
@@ -128,10 +131,13 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
 
             try
             {
-                var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                tokenSource.CancelAfter(_processingTimeout);
+                using (var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+                {
+                    tokenSource.CancelAfter(_processingTimeout);
 
-                await _batchCallbackFunc(batch, tokenSource.Token).ConfigureAwait(false);
+                    await _batchCallbackFunc(batch, tokenSource.Token).ConfigureAwait(false);
+                }
+                
                 feedbackSender.Ack();
             }
             catch (Exception)

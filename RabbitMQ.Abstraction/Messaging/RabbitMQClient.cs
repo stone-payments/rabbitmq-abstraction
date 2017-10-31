@@ -49,7 +49,7 @@ namespace RabbitMQ.Abstraction.Messaging
                 Password = match.Groups["password"].Value,
                 VirtualHost = match.Groups["vhost"].Value,
                 AutomaticRecoveryEnabled = true,
-
+                DispatchConsumersAsync = true,
             };
 
             _connectionPool = new RabbitMQConnectionPool(connectionFactory);
@@ -301,7 +301,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public async Task<bool> VirtualHostDeclare(string virtualHostName)
         {
-            var response = await _httpClient.PutAsync($"vhosts/{virtualHostName}", null);
+            var response = await _httpClient.PutAsync($"vhosts/{virtualHostName}", null).ConfigureAwait(false);
 
             return response.IsSuccessStatusCode;
         }
@@ -309,7 +309,7 @@ namespace RabbitMQ.Abstraction.Messaging
         public async Task<bool> GrantPermissions(string virtualHostName, string userName, VirtualHostUserPermission permissions)
         {
             var response = await _httpClient.PutAsync($"permissions/{virtualHostName}/{userName}",
-                new StringContent(JsonConvert.SerializeObject(permissions), Encoding.UTF8, "application/json"));
+                new StringContent(JsonConvert.SerializeObject(permissions), Encoding.UTF8, "application/json")).ConfigureAwait(false);
 
             return response.IsSuccessStatusCode;
         }
@@ -317,7 +317,7 @@ namespace RabbitMQ.Abstraction.Messaging
         public async Task<bool> PolicyDeclare(string virtualHostName, string policyName, VirtualHostPolicy policy)
         {
             var response = await _httpClient.PutAsync($"policies/{virtualHostName}/{policyName}",
-                new StringContent(JsonConvert.SerializeObject(policy), Encoding.UTF8, "application/json"));
+                new StringContent(JsonConvert.SerializeObject(policy), Encoding.UTF8, "application/json")).ConfigureAwait(false);
 
             return response.IsSuccessStatusCode;
         }

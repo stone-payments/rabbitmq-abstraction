@@ -109,7 +109,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             return instance;
         }
 
-        public Task StartAsync(CancellationToken cancellationToken)
+        public Task<Task> StartAsync(CancellationToken cancellationToken)
         {
             return StartAsync(cancellationToken, _batchCallbackAction != null);
         }

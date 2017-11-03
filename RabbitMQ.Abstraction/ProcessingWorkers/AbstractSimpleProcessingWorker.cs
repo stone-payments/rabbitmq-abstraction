@@ -34,7 +34,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             MessageRejectionHandler = messageRejectionHandler ?? new MessageDeserializationRejectionHandler(QueueClient);
         }
 
-        protected Task StartAsync(CancellationToken cancellationToken, bool batched)
+        protected Task<Task> StartAsync(CancellationToken cancellationToken, bool batched)
         {
             if (Consumer == null)
             {

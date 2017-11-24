@@ -50,5 +50,7 @@ namespace RabbitMQ.Abstraction.Messaging.Interfaces
         Task<bool> GrantPermissions(string virtualHostName, string userName, VirtualHostUserPermission permissions);
 
         Task<bool> PolicyDeclare(string virtualHostName, string policyName, VirtualHostPolicy policy);
+
+        Task<bool> ShovelDeclare(string virtualHostName, string shovelName, ShovelConfiguration shovelConfiguration);
     }
 }

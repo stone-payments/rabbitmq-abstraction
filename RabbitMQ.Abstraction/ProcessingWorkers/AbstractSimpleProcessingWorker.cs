@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using RabbitMQ.Abstraction.Interfaces;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 
@@ -19,19 +20,24 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
 
         protected readonly IMessageRejectionHandler MessageRejectionHandler;
 
-        protected AbstractSimpleProcessingWorker(IQueueConsumer consumer)
+        protected readonly ILogger Logger;
+
+        protected AbstractSimpleProcessingWorker(IQueueConsumer consumer, ILogger logger = null)
         {
             Consumer = consumer;
+            Logger = logger;
         }
 
         protected AbstractSimpleProcessingWorker(IQueueClient queueClient, string queueName,
-            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null)
         {
             QueueClient = queueClient;
             QueueName = queueName;
 
             ConsumerCountManager = consumerCountManager ?? new ConsumerCountManager();
             MessageRejectionHandler = messageRejectionHandler ?? new MessageDeserializationRejectionHandler(QueueClient);
+
+            Logger = logger;
         }
 
         protected Task<Task> StartAsync(CancellationToken cancellationToken, bool batched)

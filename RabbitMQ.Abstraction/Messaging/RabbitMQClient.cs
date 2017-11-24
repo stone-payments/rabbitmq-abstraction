@@ -322,6 +322,17 @@ namespace RabbitMQ.Abstraction.Messaging
             return response.IsSuccessStatusCode;
         }
 
+        public async Task<bool> ShovelDeclare(string virtualHostName, string shovelName,
+            ShovelConfiguration shovelConfiguration)
+        {
+            var response = await _httpClient.PutAsync($"/api/parameters/shovel/{virtualHostName}/{shovelName}",
+                    new StringContent(JsonConvert.SerializeObject(shovelConfiguration), Encoding.UTF8,
+                        "application/json"))
+                .ConfigureAwait(false);
+
+            return response.IsSuccessStatusCode;
+        }
+
         public IQueueConsumer GetConsumer<T>(string queueName, IConsumerCountManager consumerCountManager, 
             IMessageProcessingWorker<T> messageProcessingWorker, IMessageRejectionHandler messageRejectionHandler) 
             where T : class

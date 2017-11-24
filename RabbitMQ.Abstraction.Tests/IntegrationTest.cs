@@ -320,6 +320,41 @@ namespace RabbitMQ.Abstraction.Tests
             }
         }
 
+        [Test]
+        public async Task CreateShovel()
+        {
+            var connectionFactory = CreateConnectionFactory();
+
+            using (var queueClient = new RabbitMQClient(connectionFactory))
+            {
+                var response = await queueClient.ShovelDeclare("testing", "testShovel",
+                    new ShovelConfiguration(new ShovelConfigurationContent("amqp://guest:guest@localhost/testing",
+                        "testSourceQueue", "amqp://guest:guest@localhost/testing", "testTargetQueue")));
+
+                if (!response)
+                {
+                    throw new Exception("Error creating shovel");
+                }
+            }
+        }
+
+        [Test]
+        public async Task CreatePolicy()
+        {
+            var connectionFactory = CreateConnectionFactory();
+
+            using (var queueClient = new RabbitMQClient(connectionFactory))
+            {
+                var response = await queueClient.PolicyDeclare("testing", "testPolicy",
+                    new VirtualHostPolicy("(.log)$", new Dictionary<string, object> {{"message-ttl", 1000}}, 0, PolicyScope.Queues));
+
+                if (!response)
+                {
+                    throw new Exception("Error creating policy");
+                }
+            }
+        }
+
         private static ConnectionFactory CreateConnectionFactory()
         {
             return new ConnectionFactory

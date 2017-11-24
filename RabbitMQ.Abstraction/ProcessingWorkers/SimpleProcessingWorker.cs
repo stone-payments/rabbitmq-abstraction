@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using RabbitMQ.Abstraction.Interfaces;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 
@@ -15,38 +16,38 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
 
         private readonly ushort _batchSize;
 
-        public SimpleProcessingWorker(IQueueConsumer consumer, Action<T> callbackAction)
-            : base(consumer)
+        public SimpleProcessingWorker(IQueueConsumer consumer, Action<T> callbackAction, ILogger logger = null)
+            : base(consumer, logger)
         {
             _callbackAction = callbackAction;
         }
 
-        public SimpleProcessingWorker(IQueueConsumer consumer, Action<IEnumerable<T>> batchCallbackAction, ushort batchSize)
-            : base(consumer)
+        public SimpleProcessingWorker(IQueueConsumer consumer, Action<IEnumerable<T>> batchCallbackAction, ushort batchSize, ILogger logger = null)
+            : base(consumer, logger)
         {
             _batchCallbackAction = batchCallbackAction;
             _batchSize = batchSize;
         }
 
         public SimpleProcessingWorker(IQueueClient queueClient, string queueName, Action<T> callbackAction, 
-            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null) 
-            : base(queueClient, queueName, consumerCountManager, messageRejectionHandler)
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null) 
+            : base(queueClient, queueName, consumerCountManager, messageRejectionHandler, logger)
         {
             _callbackAction = callbackAction;
         }
 
         public SimpleProcessingWorker(IQueueClient queueClient, string queueName, Action<IEnumerable<T>> batchCallbackAction, 
-            ushort batchSize, IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
-            : base(queueClient, queueName, consumerCountManager, messageRejectionHandler)
+            ushort batchSize, IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null)
+            : base(queueClient, queueName, consumerCountManager, messageRejectionHandler, logger)
         {
             _batchCallbackAction = batchCallbackAction;
             _batchSize = batchSize;
         }
 
         public static async Task<SimpleProcessingWorker<T>> CreateAndStartAsync(IQueueConsumer consumer, 
-            Action<T> callbackAction, CancellationToken cancellationToken)
+            Action<T> callbackAction, CancellationToken cancellationToken, ILogger logger = null)
         {
-            var instance = new SimpleProcessingWorker<T>(consumer, callbackAction);
+            var instance = new SimpleProcessingWorker<T>(consumer, callbackAction, logger);
 
             await instance.StartAsync(cancellationToken).ConfigureAwait(false);
 
@@ -54,9 +55,9 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
         }
 
         public static async Task<SimpleProcessingWorker<T>> CreateAndStartAsync(IQueueConsumer consumer,
-            Action<IEnumerable<T>> batchCallbackAction, ushort batchSize, CancellationToken cancellationToken)
+            Action<IEnumerable<T>> batchCallbackAction, ushort batchSize, CancellationToken cancellationToken, ILogger logger = null)
         {
-            var instance = new SimpleProcessingWorker<T>(consumer, batchCallbackAction, batchSize);
+            var instance = new SimpleProcessingWorker<T>(consumer, batchCallbackAction, batchSize, logger);
 
             await instance.StartAsync(cancellationToken).ConfigureAwait(false);
 
@@ -65,10 +66,10 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
 
         public static async Task<SimpleProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient, string queueName, 
             Action<T> callbackAction, CancellationToken cancellationToken, IConsumerCountManager consumerCountManager = null, 
-            IMessageRejectionHandler messageRejectionHandler = null)
+            IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null)
         {
             var instance = new SimpleProcessingWorker<T>(queueClient, queueName, callbackAction,
-                consumerCountManager, messageRejectionHandler);
+                consumerCountManager, messageRejectionHandler, logger);
 
             await instance.StartAsync(cancellationToken).ConfigureAwait(false);
 
@@ -77,10 +78,10 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
 
         public static async Task<SimpleProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient, string queueName, 
             Action<IEnumerable<T>> batchCallbackAction, ushort batchSize, CancellationToken cancellationToken, 
-            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null)
         {
             var instance = new SimpleProcessingWorker<T>(queueClient, queueName, batchCallbackAction, batchSize,
-                consumerCountManager, messageRejectionHandler);
+                consumerCountManager, messageRejectionHandler, logger);
 
             await instance.StartAsync(cancellationToken).ConfigureAwait(false);
 

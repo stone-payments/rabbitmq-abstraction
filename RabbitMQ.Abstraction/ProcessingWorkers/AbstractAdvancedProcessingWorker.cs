@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using RabbitMQ.Abstraction.Exceptions.Workflow;
 using RabbitMQ.Abstraction.Interfaces;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
@@ -19,8 +20,8 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
 
         protected AbstractAdvancedProcessingWorker(IQueueConsumer consumer, 
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue, 
-            int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0)
-            : base(consumer)
+            int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, ILogger logger = null)
+            : base(consumer, logger)
         {
             InvokeRetryCount = invokeRetryCount;
             InvokeRetryWaitMilliseconds = invokeRetryWaitMilliseconds;
@@ -30,8 +31,8 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
         protected AbstractAdvancedProcessingWorker(IQueueClient queueClient, string queueName, 
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue, 
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, 
-            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
-            : base(queueClient, queueName, consumerCountManager, messageRejectionHandler)
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null)
+            : base(queueClient, queueName, consumerCountManager, messageRejectionHandler, logger)
         {
             InvokeRetryCount = invokeRetryCount;
             InvokeRetryWaitMilliseconds = invokeRetryWaitMilliseconds;
@@ -71,10 +72,14 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             else if (ShouldRequeue(exceptions))
             {
                 feedbackSender.Nack(true);
+
+                Logger.LogWarning(new AggregateException(exceptions), "Message successfully processed, but exceptions were thrown");
             }
             else
             {
                 feedbackSender.Nack(false);
+
+                Logger.LogError(new AggregateException(exceptions), "Unable to successfully process message");
             }
         }
 

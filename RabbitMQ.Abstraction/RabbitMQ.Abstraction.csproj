@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <PackageId>Stone.RabbitMQ.Abstraction</PackageId>
-    <PackageVersion>1.4.0-rc1</PackageVersion>
+    <PackageVersion>1.4.0-rc2</PackageVersion>
     <Title>RabbitMQ Abstraction</Title>
     <Authors>Stone Pagamentos</Authors>
     <Description>RabbitMQ Abstraction for messaging workflow and infrastructure management</Description>

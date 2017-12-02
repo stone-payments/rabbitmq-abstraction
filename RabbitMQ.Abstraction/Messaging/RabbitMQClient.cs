@@ -326,7 +326,9 @@ namespace RabbitMQ.Abstraction.Messaging
             ShovelConfiguration shovelConfiguration)
         {
             var response = await _httpClient.PutAsync($"/api/parameters/shovel/{virtualHostName}/{shovelName}",
-                    new StringContent(JsonConvert.SerializeObject(shovelConfiguration), Encoding.UTF8,
+                    new StringContent(
+                        JsonConvert.SerializeObject(shovelConfiguration,
+                            new JsonSerializerSettings {NullValueHandling = NullValueHandling.Ignore}), Encoding.UTF8,
                         "application/json"))
                 .ConfigureAwait(false);
 

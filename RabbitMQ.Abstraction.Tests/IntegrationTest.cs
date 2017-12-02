@@ -321,15 +321,33 @@ namespace RabbitMQ.Abstraction.Tests
         }
 
         [Test]
-        public async Task CreateShovel()
+        public async Task CreateShovelWithTargetQueue()
         {
             var connectionFactory = CreateConnectionFactory();
 
             using (var queueClient = new RabbitMQClient(connectionFactory))
             {
-                var response = await queueClient.ShovelDeclare("testing", "testShovel",
+                var response = await queueClient.ShovelDeclare("testing", "testShovelWithTargetQueue",
                     new ShovelConfiguration(new ShovelConfigurationContent("amqp://guest:guest@localhost/testing",
                         "testSourceQueue", "amqp://guest:guest@localhost/testing", "testTargetQueue")));
+
+                if (!response)
+                {
+                    throw new Exception("Error creating shovel");
+                }
+            }
+        }
+
+        [Test]
+        public async Task CreateShovelWithTargetExchangeAndRoutingKey()
+        {
+            var connectionFactory = CreateConnectionFactory();
+
+            using (var queueClient = new RabbitMQClient(connectionFactory))
+            {
+                var response = await queueClient.ShovelDeclare("testing", "testShovelWithTargetExchangeAndRoutingKey",
+                    new ShovelConfiguration(new ShovelConfigurationContent("amqp://guest:guest@localhost/testing",
+                        "testSourceQueue", "amqp://guest:guest@localhost/testing", "testTargetExchange", "testTargetRoutingKey")));
 
                 if (!response)
                 {

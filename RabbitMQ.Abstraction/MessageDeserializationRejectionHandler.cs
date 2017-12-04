@@ -24,7 +24,7 @@ namespace RabbitMQ.Abstraction
         {
             _rabbitMQClient = rabbitMQClient;
             _exchangeName = exchangeName;
-            _rejectionRoutingKey = rejectionRoutingKey;
+            _rejectionRoutingKey = exchangeName == "" ? DefaultRejectionQueueName : rejectionRoutingKey;
             _serializer = serializer ?? new JsonSerializer();
         }
 
@@ -33,7 +33,7 @@ namespace RabbitMQ.Abstraction
         {
             _rabbitMQClient = new RabbitMQClient(connectionPool, serializer);
             _exchangeName = exchangeName;
-            _rejectionRoutingKey = rejectionRoutingKey;
+            _rejectionRoutingKey = exchangeName == "" ? DefaultRejectionQueueName : rejectionRoutingKey;
             _serializer = serializer ?? new JsonSerializer();
         }
 
@@ -59,9 +59,12 @@ namespace RabbitMQ.Abstraction
         {
             _rabbitMQClient.QueueDeclare(DefaultRejectionQueueName);
 
-            _rabbitMQClient.ExchangeDeclare(_exchangeName);
+            if (_exchangeName != "")
+            {
+                _rabbitMQClient.ExchangeDeclare(_exchangeName);
 
-            _rabbitMQClient.QueueBind(DefaultRejectionQueueName, _exchangeName, _rejectionRoutingKey);
+                _rabbitMQClient.QueueBind(DefaultRejectionQueueName, _exchangeName, _rejectionRoutingKey);
+            }
         }
     }
 }

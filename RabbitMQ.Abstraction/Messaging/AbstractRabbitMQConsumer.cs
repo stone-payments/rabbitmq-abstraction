@@ -93,8 +93,8 @@ namespace RabbitMQ.Abstraction.Messaging
                     lock (_scalingLock)
                     {
                         _scalingAmount = _consumerCountManager.GetScalingAmount(queueInfo, _consumerWorkersCount);
-
-                        for (var i = 1; i <= _scalingAmount; i++)
+                        int counter = _scalingAmount;
+                        for (var i = 1; i <= counter; i++)
                         {
                             consumerStartTasks.Add(Task.Factory.StartNew(async () =>
                             {

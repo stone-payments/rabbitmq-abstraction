@@ -65,17 +65,17 @@ namespace RabbitMQ.Abstraction.Messaging
             }
         }
 
-        public uint GetMessageCount()
+        public async Task<uint> GetMessageCountAsync()
         {
-            using (var model = ConnectionPool.GetConnection().CreateModel())
+            using (var model = (await ConnectionPool.GetConnectionAsync()).CreateModel())
             {
                 return GetMessageCount(model);
             }
         }
 
-        public uint GetConsumerCount()
+        public async Task<uint> GetConsumerCountAsync()
         {
-            using (var model = ConnectionPool.GetConnection().CreateModel())
+            using (var model = (await ConnectionPool.GetConnectionAsync()).CreateModel())
             {
                 return GetConsumerCount(model);
             }
@@ -87,7 +87,7 @@ namespace RabbitMQ.Abstraction.Messaging
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    var queueInfo = CreateQueueInfo();
+                    var queueInfo = await CreateQueueInfoAsync().ConfigureAwait(false);
 
                     var consumerStartTasks = new List<Task>();
                     lock (_scalingLock)
@@ -103,7 +103,7 @@ namespace RabbitMQ.Abstraction.Messaging
                                     Interlocked.Decrement(ref _scalingAmount);
                                     Interlocked.Increment(ref _consumerWorkersCount);
 
-                                    using (IQueueConsumerWorker consumerWorker = CreateNewConsumerWorker())
+                                    using (IQueueConsumerWorker consumerWorker = await CreateNewConsumerWorkerAsync().ConfigureAwait(false))
                                     {
                                         await consumerWorker.DoConsumeAsync(cancellationToken).ConfigureAwait(false);
                                     }
@@ -135,7 +135,7 @@ namespace RabbitMQ.Abstraction.Messaging
             }
         }
 
-        protected abstract IQueueConsumerWorker CreateNewConsumerWorker();
+        protected abstract Task<IQueueConsumerWorker> CreateNewConsumerWorkerAsync();
         
         protected bool TryScaleDown()
         {
@@ -161,10 +161,10 @@ namespace RabbitMQ.Abstraction.Messaging
             Stop().Wait();
         }
 
-        private QueueInfo CreateQueueInfo()
+        private async Task<QueueInfo> CreateQueueInfoAsync()
         {
             QueueInfo queueInfo;
-            using (var model = ConnectionPool.GetConnection().CreateModel())
+            using (var model = (await ConnectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
             {
                 var queueDeclareOk = model.QueueDeclarePassive(QueueName);
 

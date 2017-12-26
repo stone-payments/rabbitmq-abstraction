@@ -7,50 +7,39 @@ namespace RabbitMQ.Abstraction.Messaging.Interfaces
 {
     public interface IQueueClient : IDisposable
     {
-        void Publish<T>(string exchangeName, string routingKey, T content);
+        Task PublishAsync<T>(string exchangeName, string routingKey, T content);
+        Task BatchPublishAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList);
+        Task BatchPublishTransactionalAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList);
+        Task DelayedPublishAsync<T>(string exchangeName, string routingKey, T content, TimeSpan delay);
 
-        void BatchPublish<T>(string exchangeName, string routingKey, IEnumerable<T> contentList);
+        Task QueueDeclareAsync(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false,
+            IDictionary<string, object> arguments = null);
 
-        void BatchPublishTransactional<T>(string exchangeName, string routingKey, IEnumerable<T> contentList);
+        Task QueueDeclarePassiveAsync(string queueName);
+        Task<uint> QueueDeleteAsync(string queueName);
+        Task QueueBindAsync(string queueName, string exchangeName, string routingKey);
+        Task ExchangeDeclareAsync(string exchangeName, bool passive = false);
+        Task<bool> QueueExistsAsync(string queueName);
 
-        void DelayedPublish<T>(string exchangeName, string routingKey, T content, TimeSpan delay);
+        Task EnsureQueueExistsAsync(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false,
+            IDictionary<string, object> arguments = null);
 
-        IQueueConsumer GetConsumer<T>(string queueName, IConsumerCountManager consumerCountManager, 
-            IMessageProcessingWorker<T> messageProcessingWorker, IMessageRejectionHandler messageRejectionHandler) 
+        Task<uint> QueuePurgeAsync(string queueName);
+        Task<uint> GetMessageCountAsync(string queueName);
+        Task<uint> GetConsumerCountAsync(string queueName);
+        Task<bool> VirtualHostDeclareAsync(string virtualHostName);
+        Task<bool> GrantPermissionsAsync(string virtualHostName, string userName, VirtualHostUserPermission permissions);
+        Task<bool> PolicyDeclareAsync(string virtualHostName, string policyName, VirtualHostPolicy policy);
+
+        Task<bool> ShovelDeclareAsync(string virtualHostName, string shovelName,
+            ShovelConfiguration shovelConfiguration);
+
+        IQueueConsumer CreateConsumer<T>(string queueName, IConsumerCountManager consumerCountManager,
+            IMessageProcessingWorker<T> messageProcessingWorker, IMessageRejectionHandler messageRejectionHandler)
             where T : class;
 
-        IQueueConsumer GetBatchConsumer<T>(string queueName, IConsumerCountManager consumerCountManager,
+        IQueueConsumer CreateBatchConsumer<T>(string queueName, IConsumerCountManager consumerCountManager,
             IBatchProcessingWorker<T> batchProcessingWorker, IMessageRejectionHandler messageRejectionHandler)
             where T : class;
-
-        void QueueDeclare(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false, 
-            IDictionary<string, object> arguments = null);
-
-        void QueueDeclarePassive(string queueName);
-
-        uint QueueDelete(string queueName);
-
-        void QueueBind(string queueName, string exchangeName, string routingKey);
-
-        uint QueuePurge(string queueName);
-
-        void ExchangeDeclare(string exchangeName, bool passive = false);
-
-        bool QueueExists(string queueName);
-
-        void EnsureQueueExists(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false, 
-            IDictionary<string, object> arguments = null);
-
-        uint GetMessageCount(string queueName);
-
-        uint GetConsumerCount(string queueName);
-
-        Task<bool> VirtualHostDeclare(string virtualHostname);
-
-        Task<bool> GrantPermissions(string virtualHostName, string userName, VirtualHostUserPermission permissions);
-
-        Task<bool> PolicyDeclare(string virtualHostName, string policyName, VirtualHostPolicy policy);
-
-        Task<bool> ShovelDeclare(string virtualHostName, string shovelName, ShovelConfiguration shovelConfiguration);
     }
 }

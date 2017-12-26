@@ -16,16 +16,16 @@ namespace RabbitMQ.Abstraction
             _exchangeName = exchangeName;
         }
 
-        public void QueueInit(IEnumerable<QueueBinding> queueBindings, bool enableDeadLettering = true)
+        public async Task QueueInitAsync(IEnumerable<QueueBinding> queueBindings, bool enableDeadLettering = true)
         {
-            _queueClient.ExchangeDeclare(_exchangeName);
+            await _queueClient.ExchangeDeclareAsync(_exchangeName).ConfigureAwait(false);
 
-            Parallel.ForEach(queueBindings, queueBinding =>
+            await queueBindings.ForEachAsync(async queueBinding =>
             {
                 //Error queue
                 var errorQueueName = $"{queueBinding.Queue}.error";
                 var errorRouteName = _exchangeName + "." + errorQueueName;
-                QueueDeclareAndBind(errorQueueName, errorRouteName);
+                await QueueDeclareAndBindAsync(errorQueueName, errorRouteName).ConfigureAwait(false);
 
                 //Process queue
                 var processQueueName = $"{queueBinding.Queue}.processing";
@@ -33,20 +33,20 @@ namespace RabbitMQ.Abstraction
 
                 if (enableDeadLettering)
                 {
-                    QueueDeclareAndBind(processQueueName, processRouteName, errorRouteName);
+                    await QueueDeclareAndBindAsync(processQueueName, processRouteName, errorRouteName).ConfigureAwait(false);
                 }
                 else
                 {
-                    QueueDeclareAndBind(processQueueName, processRouteName);
+                    await QueueDeclareAndBindAsync(processQueueName, processRouteName).ConfigureAwait(false);
                 }
 
                 //Log queue
                 var logQueueName = $"{queueBinding.Queue}.log";
-                QueueDeclareAndBind(logQueueName, processRouteName, lazy: true);
+                await QueueDeclareAndBindAsync(logQueueName, processRouteName, lazy: true).ConfigureAwait(false);
             });
         }
 
-        protected void QueueDeclareAndBind(string queueName, string routeName, string deadLetterRouteName = null, bool lazy = false)
+        protected async Task QueueDeclareAndBindAsync(string queueName, string routeName, string deadLetterRouteName = null, bool lazy = false)
         {
             var queueArguments = new Dictionary<string, object>();
 
@@ -61,8 +61,8 @@ namespace RabbitMQ.Abstraction
                 queueArguments.Add("x-queue-mode", "lazy");
             }
 
-            _queueClient.EnsureQueueExists(queueName, arguments: queueArguments);
-            _queueClient.QueueBind(queueName, _exchangeName, routeName);
+            await _queueClient.EnsureQueueExistsAsync(queueName, arguments: queueArguments).ConfigureAwait(false);
+            await _queueClient.QueueBindAsync(queueName, _exchangeName, routeName).ConfigureAwait(false);
         }
     }
 }

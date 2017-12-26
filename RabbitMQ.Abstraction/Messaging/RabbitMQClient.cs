@@ -109,10 +109,10 @@ namespace RabbitMQ.Abstraction.Messaging
             };
         }
 
-        public void Publish<T>(string exchangeName, string routingKey, T content)
+        public async Task PublishAsync<T>(string exchangeName, string routingKey, T content)
         {
             var serializedContent = _serializer.Serialize(content);
-            using (var model = _connectionPool.GetConnection().CreateModel())
+            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
             {
                 var props = model.CreateBasicProperties();
                 props.DeliveryMode = 2;
@@ -121,9 +121,9 @@ namespace RabbitMQ.Abstraction.Messaging
             }
         }
 
-        public void BatchPublish<T>(string exchangeName, string routingKey, IEnumerable<T> contentList)
+        public async Task BatchPublishAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList)
         {
-            using (var model = _connectionPool.GetConnection().CreateModel())
+            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
             {
                 var props = model.CreateBasicProperties();
                 props.DeliveryMode = 2;
@@ -138,9 +138,9 @@ namespace RabbitMQ.Abstraction.Messaging
             }
         }
 
-        public void BatchPublishTransactional<T>(string exchangeName, string routingKey, IEnumerable<T> contentList)
+        public async Task BatchPublishTransactionalAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList)
         {
-            using (var model = _connectionPool.GetConnection().CreateModel())
+            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
             {
                 try
                 {
@@ -171,10 +171,10 @@ namespace RabbitMQ.Abstraction.Messaging
             }
         }
 
-        public void DelayedPublish<T>(string exchangeName, string routingKey, T content, TimeSpan delay)
+        public async Task DelayedPublishAsync<T>(string exchangeName, string routingKey, T content, TimeSpan delay)
         {
             var serializedContent = _serializer.Serialize(content);
-            using (var model = _connectionPool.GetConnection().CreateModel())
+            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
             {
                 var props = model.CreateBasicProperties();
                 props.DeliveryMode = 2;
@@ -183,55 +183,55 @@ namespace RabbitMQ.Abstraction.Messaging
 
                 var queueName = $"delayed.{routingKey}@{exchangeName}.{Guid.NewGuid()}";
 
-                QueueDeclare(queueName,
+                await QueueDeclareAsync(queueName,
                     arguments:
                         new Dictionary<string, object>
                         {
                             {"x-dead-letter-exchange", exchangeName},
                             {"x-dead-letter-routing-key", routingKey},
                             {"x-expires", (long)delay.Add(TimeSpan.FromSeconds(1)).TotalMilliseconds}
-                        });
+                        }).ConfigureAwait(false);
 
                 model.BasicPublish("", queueName, props, payload);
             }
         }
 
-        public void QueueDeclare(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false, 
+        public async Task QueueDeclareAsync(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false, 
             IDictionary<string, object> arguments = null)
         {
-            using (var model = _connectionPool.GetConnection().CreateModel())
+            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
             {
                 model.QueueDeclare(queueName, durable, exclusive, autoDelete, arguments);
             }
         }
 
-        public void QueueDeclarePassive(string queueName)
+        public async Task QueueDeclarePassiveAsync(string queueName)
         {
-            using (var model = _connectionPool.GetConnection().CreateModel())
+            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
             {
                 model.QueueDeclarePassive(queueName);
             }
         }
 
-        public uint QueueDelete(string queueName)
+        public async Task<uint> QueueDeleteAsync(string queueName)
         {
-            using (var model = _connectionPool.GetConnection().CreateModel())
+            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
             {
                 return model.QueueDelete(queueName);
             }
         }
 
-        public void QueueBind(string queueName, string exchangeName, string routingKey)
+        public async Task QueueBindAsync(string queueName, string exchangeName, string routingKey)
         {
-            using (var model = _connectionPool.GetConnection().CreateModel())
+            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
             {
                 model.QueueBind(queueName, exchangeName, routingKey);
             }
         }
 
-        public void ExchangeDeclare(string exchangeName, bool passive = false)
+        public async Task ExchangeDeclareAsync(string exchangeName, bool passive = false)
         {
-            using (var model = _connectionPool.GetConnection().CreateModel())
+            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
             {
                 if (passive)
                 {
@@ -244,9 +244,9 @@ namespace RabbitMQ.Abstraction.Messaging
             }
         }
 
-        public bool QueueExists(string queueName)
+        public async Task<bool> QueueExistsAsync(string queueName)
         {
-            using (var model = _connectionPool.GetConnection().CreateModel())
+            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
             {
                 try
                 {
@@ -261,27 +261,27 @@ namespace RabbitMQ.Abstraction.Messaging
             }
         }
 
-        public void EnsureQueueExists(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false, 
+        public async Task EnsureQueueExistsAsync(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false, 
             IDictionary<string, object> arguments = null)
         {
-            if (!QueueExists(queueName))
+            if (!await QueueExistsAsync(queueName).ConfigureAwait(false))
             {
-                QueueDeclare(queueName, durable, exclusive, autoDelete, arguments);
+                await QueueDeclareAsync(queueName, durable, exclusive, autoDelete, arguments).ConfigureAwait(false);
             }
         }
 
-        public uint QueuePurge(string queueName)
+        public async Task<uint> QueuePurgeAsync(string queueName)
         {
-            using (var model = _connectionPool.GetConnection().CreateModel())
+            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
             {
                 var returnValue = model.QueuePurge(queueName);
                 return returnValue;
             }
         }
 
-        public uint GetMessageCount(string queueName)
+        public async Task<uint> GetMessageCountAsync(string queueName)
         {
-            using (var model = _connectionPool.GetConnection().CreateModel())
+            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
             {
                 var queueDeclareOk = model.QueueDeclarePassive(queueName);
 
@@ -289,9 +289,9 @@ namespace RabbitMQ.Abstraction.Messaging
             }
         }
 
-        public uint GetConsumerCount(string queueName)
+        public async Task<uint> GetConsumerCountAsync(string queueName)
         {
-            using (var model = _connectionPool.GetConnection().CreateModel())
+            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
             {
                 var queueDeclareOk = model.QueueDeclarePassive(queueName);
 
@@ -299,14 +299,14 @@ namespace RabbitMQ.Abstraction.Messaging
             }
         }
 
-        public async Task<bool> VirtualHostDeclare(string virtualHostName)
+        public async Task<bool> VirtualHostDeclareAsync(string virtualHostName)
         {
             var response = await _httpClient.PutAsync($"vhosts/{virtualHostName}", null).ConfigureAwait(false);
 
             return response.IsSuccessStatusCode;
         }
 
-        public async Task<bool> GrantPermissions(string virtualHostName, string userName, VirtualHostUserPermission permissions)
+        public async Task<bool> GrantPermissionsAsync(string virtualHostName, string userName, VirtualHostUserPermission permissions)
         {
             var response = await _httpClient.PutAsync($"permissions/{virtualHostName}/{userName}",
                 new StringContent(JsonConvert.SerializeObject(permissions), Encoding.UTF8, "application/json")).ConfigureAwait(false);
@@ -314,7 +314,7 @@ namespace RabbitMQ.Abstraction.Messaging
             return response.IsSuccessStatusCode;
         }
 
-        public async Task<bool> PolicyDeclare(string virtualHostName, string policyName, VirtualHostPolicy policy)
+        public async Task<bool> PolicyDeclareAsync(string virtualHostName, string policyName, VirtualHostPolicy policy)
         {
             var response = await _httpClient.PutAsync($"policies/{virtualHostName}/{policyName}",
                 new StringContent(JsonConvert.SerializeObject(policy), Encoding.UTF8, "application/json")).ConfigureAwait(false);
@@ -322,7 +322,7 @@ namespace RabbitMQ.Abstraction.Messaging
             return response.IsSuccessStatusCode;
         }
 
-        public async Task<bool> ShovelDeclare(string virtualHostName, string shovelName,
+        public async Task<bool> ShovelDeclareAsync(string virtualHostName, string shovelName,
             ShovelConfiguration shovelConfiguration)
         {
             var response = await _httpClient.PutAsync($"/api/parameters/shovel/{virtualHostName}/{shovelName}",
@@ -335,7 +335,7 @@ namespace RabbitMQ.Abstraction.Messaging
             return response.IsSuccessStatusCode;
         }
 
-        public IQueueConsumer GetConsumer<T>(string queueName, IConsumerCountManager consumerCountManager, 
+        public IQueueConsumer CreateConsumer<T>(string queueName, IConsumerCountManager consumerCountManager, 
             IMessageProcessingWorker<T> messageProcessingWorker, IMessageRejectionHandler messageRejectionHandler) 
             where T : class
         {
@@ -349,7 +349,7 @@ namespace RabbitMQ.Abstraction.Messaging
                 messageRejectionHandler: messageRejectionHandler);
         }
 
-        public IQueueConsumer GetBatchConsumer<T>(string queueName, IConsumerCountManager consumerCountManager,
+        public IQueueConsumer CreateBatchConsumer<T>(string queueName, IConsumerCountManager consumerCountManager,
             IBatchProcessingWorker<T> batchProcessingWorker, IMessageRejectionHandler messageRejectionHandler)
             where T : class
         {

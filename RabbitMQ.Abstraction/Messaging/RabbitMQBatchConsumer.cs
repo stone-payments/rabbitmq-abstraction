@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using RabbitMQ.Abstraction.Interfaces;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 using RabbitMQ.Abstraction.Serialization.Interfaces;
@@ -15,10 +16,10 @@ namespace RabbitMQ.Abstraction.Messaging
             _batchProcessingWorker = batchProcessingWorker;
         }
 
-        protected override IQueueConsumerWorker CreateNewConsumerWorker()
+        protected override async Task<IQueueConsumerWorker> CreateNewConsumerWorkerAsync()
         {
             var newConsumerWorker = new RabbitMQBatchConsumerWorker<T>(
-                connection: ConnectionPool.GetConnection(),
+                connection: await ConnectionPool.GetConnectionAsync().ConfigureAwait(false),
                 queueName: QueueName,
                 batchProcessingWorker: _batchProcessingWorker,
                 messageRejectionHandler: MessageRejectionHandler,

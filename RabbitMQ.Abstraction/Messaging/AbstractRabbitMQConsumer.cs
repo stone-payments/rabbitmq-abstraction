@@ -52,7 +52,7 @@ namespace RabbitMQ.Abstraction.Messaging
             var token = _cancellationTokenSource.Token;
 
             return Task.Factory.StartNew(async () => await ManageConsumersLoopAsync(token).ConfigureAwait(false),
-                cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Current);
+                cancellationToken);
         }
 
         public async Task Stop()
@@ -120,7 +120,7 @@ namespace RabbitMQ.Abstraction.Messaging
                                             {"QueueName", QueueName}
                                             });
                                 }
-                            }, cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Current));
+                            }, cancellationToken));
                         }
                     }
                     await Task.WhenAll(consumerStartTasks).ConfigureAwait(false);

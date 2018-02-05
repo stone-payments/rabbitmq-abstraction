@@ -85,7 +85,7 @@ namespace RabbitMQ.Abstraction.Messaging
                             QueueName = _subscription.QueueName
                         };
                         //Pass DeserializationException to RejectionHandler
-                        _messageRejectionHandler.OnRejection(deserializationException);
+                        await _messageRejectionHandler.OnRejectionAsync(deserializationException).ConfigureAwait(false);
 
                         //Remove message from queue after RejectionHandler dealt with it
                         _model.BasicNack(lastResult.DeliveryTag, false, false);

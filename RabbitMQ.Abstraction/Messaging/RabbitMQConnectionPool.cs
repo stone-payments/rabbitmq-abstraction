@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using RabbitMQ.Client;
 
 namespace RabbitMQ.Abstraction.Messaging
@@ -27,7 +28,7 @@ namespace RabbitMQ.Abstraction.Messaging
             EnsurePoolSize();
         }
 
-        public IConnection GetConnection()
+        public async Task<IConnection> GetConnectionAsync()
         {
             EnsurePoolSize();
 
@@ -40,15 +41,15 @@ namespace RabbitMQ.Abstraction.Messaging
 
             if(elegibleConnection == null)
             {
-                elegibleConnection = GetConnection();
+                elegibleConnection = await GetConnectionAsync().ConfigureAwait(false);
             }
 
-            var connection = EnsureConnectionOpen(elegibleConnection);
+            var connection = await EnsureConnectionOpenAsync(elegibleConnection).ConfigureAwait(false);
 
             return connection;
         }
 
-        private IConnection EnsureConnectionOpen(IConnection connection)
+        private async Task<IConnection> EnsureConnectionOpenAsync(IConnection connection)
         {
             IConnection ensuredConnection;
 
@@ -68,7 +69,9 @@ namespace RabbitMQ.Abstraction.Messaging
                     _connections.Remove(connection);
                 }
 
-                ensuredConnection = GetConnection();
+                await Task.Delay(TimeSpan.FromMilliseconds(100)).ConfigureAwait(false);
+
+                ensuredConnection = await GetConnectionAsync().ConfigureAwait(false);
             }
             
             return ensuredConnection;

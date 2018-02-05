@@ -23,9 +23,9 @@ namespace RabbitMQ.Abstraction.Tests
             {
                 var queueName = $"IntegratedTestQueue_{Guid.NewGuid()}";
 
-                queueClient.EnsureQueueExists(queueName, autoDelete:true);
+                await queueClient.EnsureQueueExistsAsync(queueName, autoDelete:true);
 
-                queueClient.Publish("", queueName, "TestValue123");
+                await queueClient.PublishAsync("", queueName, "TestValue123");
 
                 var receivedMessage = "";
 
@@ -61,9 +61,9 @@ namespace RabbitMQ.Abstraction.Tests
             {
                 var queueName = $"IntegratedTestQueue_{Guid.NewGuid()}";
 
-                queueClient.EnsureQueueExists(queueName);
+                await queueClient.EnsureQueueExistsAsync(queueName);
 
-                queueClient.BatchPublish("", queueName, messages);
+                await queueClient.BatchPublishAsync("", queueName, messages);
 
                 var receivedMessages = new ConcurrentBag<string>();
 
@@ -82,7 +82,7 @@ namespace RabbitMQ.Abstraction.Tests
 
                 worker.Stop();
 
-                queueClient.QueueDelete(queueName);
+                await queueClient.QueueDeleteAsync(queueName);
 
                 receivedMessages.Count.ShouldBe(messages.Count);
                 receivedMessages.ShouldBeSubsetOf(messages);
@@ -102,9 +102,9 @@ namespace RabbitMQ.Abstraction.Tests
             {
                 var queueName = $"IntegratedTestQueue_{Guid.NewGuid()}";
 
-                queueClient.EnsureQueueExists(queueName);
+                await queueClient.EnsureQueueExistsAsync(queueName);
 
-                queueClient.BatchPublish("", queueName, messages);
+                await queueClient.BatchPublishAsync("", queueName, messages);
 
                 var receivedMessages = new ConcurrentBag<string>();
 
@@ -123,7 +123,7 @@ namespace RabbitMQ.Abstraction.Tests
 
                 worker.Stop();
 
-                queueClient.QueueDelete(queueName);
+                await queueClient.QueueDeleteAsync(queueName);
 
                 receivedMessages.Count.ShouldBe(messages.Count);
                 receivedMessages.ShouldBeSubsetOf(messages);
@@ -143,9 +143,9 @@ namespace RabbitMQ.Abstraction.Tests
             {
                 var queueName = $"IntegratedTestQueue_{Guid.NewGuid()}";
                 
-                queueClient.EnsureQueueExists(queueName);
+                await queueClient.EnsureQueueExistsAsync(queueName);
 
-                queueClient.BatchPublish("", queueName, messages);
+                await queueClient.BatchPublishAsync("", queueName, messages);
 
                 var receivedMessages = new ConcurrentBag<string>();
 
@@ -164,7 +164,7 @@ namespace RabbitMQ.Abstraction.Tests
 
                 worker.Stop();
 
-                queueClient.QueueDelete(queueName);
+                await queueClient.QueueDeleteAsync(queueName);
 
                 receivedMessages.Count.ShouldBe(messages.Count);
                 receivedMessages.ShouldBeSubsetOf(messages);
@@ -180,9 +180,9 @@ namespace RabbitMQ.Abstraction.Tests
             {
                 var queueName = $"IntegratedTestQueue_{Guid.NewGuid()}";
 
-                queueClient.EnsureQueueExists(queueName, autoDelete: true);
+                await queueClient.EnsureQueueExistsAsync(queueName, autoDelete: true);
 
-                queueClient.Publish("", queueName, "TestValue123");
+                await queueClient.PublishAsync("", queueName, "TestValue123");
 
                 var receivedMessage = "";
 
@@ -218,9 +218,9 @@ namespace RabbitMQ.Abstraction.Tests
             {
                 var queueName = $"IntegratedTestQueue_{Guid.NewGuid()}";
 
-                queueClient.EnsureQueueExists(queueName);
+                await queueClient.EnsureQueueExistsAsync(queueName);
 
-                queueClient.BatchPublish("", queueName, messages);
+                await queueClient.BatchPublishAsync("", queueName, messages);
 
                 var receivedMessages = new ConcurrentBag<string>();
 
@@ -239,7 +239,7 @@ namespace RabbitMQ.Abstraction.Tests
 
                 worker.Stop();
 
-                queueClient.QueueDelete(queueName);
+                await queueClient.QueueDeleteAsync(queueName);
 
                 receivedMessages.Count.ShouldBe(messages.Count);
                 receivedMessages.ShouldBeSubsetOf(messages);
@@ -259,9 +259,9 @@ namespace RabbitMQ.Abstraction.Tests
             {
                 var queueName = $"IntegratedTestQueue_{Guid.NewGuid()}";
 
-                queueClient.EnsureQueueExists(queueName);
+                await queueClient.EnsureQueueExistsAsync(queueName);
 
-                queueClient.BatchPublish("", queueName, messages);
+                await queueClient.BatchPublishAsync("", queueName, messages);
 
                 var worker = await SimpleProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
                             async message => await Task.Delay(20), CancellationToken.None, new ConsumerCountManager(4, 50, 1000, 2000));
@@ -278,14 +278,14 @@ namespace RabbitMQ.Abstraction.Tests
                     if (elapsedTime%1000 == 0 && messageAmount < 70000)
                     {
                         messages = GenerateMessages(10000);
-                        queueClient.BatchPublish("", queueName, messages);
+                        await queueClient.BatchPublishAsync("", queueName, messages);
                         messageAmount += 1000;
                     }
                 }
 
                 worker.Stop();
 
-                queueClient.QueueDelete(queueName);
+                await queueClient.QueueDeleteAsync(queueName);
             }
         }
 
@@ -300,22 +300,22 @@ namespace RabbitMQ.Abstraction.Tests
 
                 try
                 {
-                    queueClient.QueueDeclare(queueName);
-                    queueClient.ExchangeDeclare("delayedTargetExchange");
-                    queueClient.QueueBind(queueName, "delayedTargetExchange", "delayedTargetRoutingKey");
+                    await queueClient.QueueDeclareAsync(queueName);
+                    await queueClient.ExchangeDeclareAsync("delayedTargetExchange");
+                    await queueClient.QueueBindAsync(queueName, "delayedTargetExchange", "delayedTargetRoutingKey");
 
-                    queueClient.DelayedPublish("delayedTargetExchange", "delayedTargetRoutingKey", "delayedMessage",
+                    await queueClient.DelayedPublishAsync("delayedTargetExchange", "delayedTargetRoutingKey", "delayedMessage",
                         TimeSpan.FromSeconds(5));
 
-                    queueClient.GetMessageCount(queueName).ShouldBe<uint>(0);
+                    (await queueClient.GetMessageCountAsync(queueName)).ShouldBe<uint>(0);
 
                     await Task.Delay(TimeSpan.FromSeconds(5));
 
-                    queueClient.GetMessageCount(queueName).ShouldBe<uint>(1);
+                    (await queueClient.GetMessageCountAsync(queueName)).ShouldBe<uint>(1);
                 }
                 finally
                 {
-                    queueClient.QueueDelete(queueName);
+                    await queueClient.QueueDeleteAsync(queueName);
                 }
             }
         }
@@ -327,7 +327,7 @@ namespace RabbitMQ.Abstraction.Tests
 
             using (var queueClient = new RabbitMQClient(connectionFactory))
             {
-                var response = await queueClient.ShovelDeclare("testing", "testShovelWithTargetQueue",
+                var response = await queueClient.ShovelDeclareAsync("testing", "testShovelWithTargetQueue",
                     new ShovelConfiguration(new ShovelConfigurationContent("amqp://guest:guest@localhost/testing",
                         "testSourceQueue", "amqp://guest:guest@localhost/testing", "testTargetQueue")));
 
@@ -345,7 +345,7 @@ namespace RabbitMQ.Abstraction.Tests
 
             using (var queueClient = new RabbitMQClient(connectionFactory))
             {
-                var response = await queueClient.ShovelDeclare("testing", "testShovelWithTargetExchangeAndRoutingKey",
+                var response = await queueClient.ShovelDeclareAsync("testing", "testShovelWithTargetExchangeAndRoutingKey",
                     new ShovelConfiguration(new ShovelConfigurationContent("amqp://guest:guest@localhost/testing",
                         "testSourceQueue", "amqp://guest:guest@localhost/testing", "testTargetExchange", "testTargetRoutingKey")));
 
@@ -363,7 +363,7 @@ namespace RabbitMQ.Abstraction.Tests
 
             using (var queueClient = new RabbitMQClient(connectionFactory))
             {
-                var response = await queueClient.PolicyDeclare("testing", "testPolicy",
+                var response = await queueClient.PolicyDeclareAsync("testing", "testPolicy",
                     new VirtualHostPolicy("(.log)$", new Dictionary<string, object> {{"message-ttl", 1000}}, 0, PolicyScope.Queues));
 
                 if (!response)

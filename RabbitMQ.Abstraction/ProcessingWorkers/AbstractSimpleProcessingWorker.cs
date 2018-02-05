@@ -46,12 +46,12 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             {
                 if (batched)
                 {
-                    Consumer = QueueClient.GetBatchConsumer(QueueName, ConsumerCountManager, this,
+                    Consumer = QueueClient.CreateBatchConsumer(QueueName, ConsumerCountManager, this,
                         MessageRejectionHandler);
                 }
                 else
                 {
-                    Consumer = QueueClient.GetConsumer(QueueName, ConsumerCountManager, this,
+                    Consumer = QueueClient.CreateConsumer(QueueName, ConsumerCountManager, this,
                         MessageRejectionHandler);
                 }
             }

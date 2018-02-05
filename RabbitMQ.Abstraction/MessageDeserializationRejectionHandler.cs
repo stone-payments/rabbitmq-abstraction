@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using RabbitMQ.Abstraction.Exceptions;
 using RabbitMQ.Abstraction.Messaging;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
@@ -37,7 +38,7 @@ namespace RabbitMQ.Abstraction
             _serializer = serializer ?? new JsonSerializer();
         }
 
-        public void OnRejection(RejectionException exception)
+        public async Task OnRejectionAsync(RejectionException exception)
         {
             var deserializationException = (DeserializationException)exception;
 
@@ -50,20 +51,20 @@ namespace RabbitMQ.Abstraction
                 SerializedException = _serializer.Serialize(deserializationException)
             };
 
-            EnsureQueueAndBinding();
+            await EnsureQueueAndBindingAsync().ConfigureAwait(false);
 
-            _rabbitMQClient.Publish(_exchangeName, _rejectionRoutingKey, message);
+            await _rabbitMQClient.PublishAsync(_exchangeName, _rejectionRoutingKey, message).ConfigureAwait(false);
         }
 
-        private void EnsureQueueAndBinding()
+        private async Task EnsureQueueAndBindingAsync()
         {
-            _rabbitMQClient.QueueDeclare(DefaultRejectionQueueName);
+            await _rabbitMQClient.QueueDeclareAsync(DefaultRejectionQueueName).ConfigureAwait(false);
 
             if (_exchangeName != "")
             {
-                _rabbitMQClient.ExchangeDeclare(_exchangeName);
+                await _rabbitMQClient.ExchangeDeclareAsync(_exchangeName).ConfigureAwait(false);
 
-                _rabbitMQClient.QueueBind(DefaultRejectionQueueName, _exchangeName, _rejectionRoutingKey);
+                await _rabbitMQClient.QueueBindAsync(DefaultRejectionQueueName, _exchangeName, _rejectionRoutingKey).ConfigureAwait(false);
             }
         }
     }

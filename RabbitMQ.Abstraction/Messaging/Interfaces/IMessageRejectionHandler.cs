@@ -1,9 +1,10 @@
-﻿using RabbitMQ.Abstraction.Exceptions;
+﻿using System.Threading.Tasks;
+using RabbitMQ.Abstraction.Exceptions;
 
 namespace RabbitMQ.Abstraction.Messaging.Interfaces
 {
     public interface IMessageRejectionHandler
     {
-        void OnRejection(RejectionException exception);
+        Task OnRejectionAsync(RejectionException exception);
     }
 }

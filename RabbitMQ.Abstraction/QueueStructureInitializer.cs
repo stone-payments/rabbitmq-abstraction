@@ -25,7 +25,7 @@ namespace RabbitMQ.Abstraction
                 //Error queue
                 var errorQueueName = $"{queueBinding.Queue}.error";
                 var errorRouteName = _exchangeName + "." + errorQueueName;
-                await QueueDeclareAndBindAsync(errorQueueName, errorRouteName).ConfigureAwait(false);
+                await QueueDeclareAndBindAsync(errorQueueName, errorRouteName, maxPriority: queueBinding.Queue.MaxPriority).ConfigureAwait(false);
 
                 //Process queue
                 var processQueueName = $"{queueBinding.Queue}.processing";
@@ -33,16 +33,16 @@ namespace RabbitMQ.Abstraction
 
                 if (enableDeadLettering)
                 {
-                    await QueueDeclareAndBindAsync(processQueueName, processRouteName, errorRouteName).ConfigureAwait(false);
+                    await QueueDeclareAndBindAsync(processQueueName, processRouteName, errorRouteName, maxPriority: queueBinding.Queue.MaxPriority).ConfigureAwait(false);
                 }
                 else
                 {
-                    await QueueDeclareAndBindAsync(processQueueName, processRouteName).ConfigureAwait(false);
+                    await QueueDeclareAndBindAsync(processQueueName, processRouteName, maxPriority: queueBinding.Queue.MaxPriority).ConfigureAwait(false);
                 }
 
                 //Log queue
                 var logQueueName = $"{queueBinding.Queue}.log";
-                await QueueDeclareAndBindAsync(logQueueName, processRouteName, lazy: true).ConfigureAwait(false);
+                await QueueDeclareAndBindAsync(logQueueName, processRouteName, lazy: true, maxPriority: queueBinding.Queue.MaxPriority).ConfigureAwait(false);
             });
         }
 

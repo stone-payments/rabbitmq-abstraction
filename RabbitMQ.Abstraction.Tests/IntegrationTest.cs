@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
@@ -45,6 +46,52 @@ namespace RabbitMQ.Abstraction.Tests
                 worker.Stop();
 
                 receivedMessage.ShouldBe("TestValue123");
+            }
+        }
+
+        [Test]
+        public async Task CreatePriorityPublishAndConsume()
+        {
+            var connectionFactory = CreateConnectionFactory();
+
+            using (var queueClient = new RabbitMQClient(connectionFactory))
+            {
+                var queueName = $"IntegratedTestQueue_{Guid.NewGuid()}";
+
+                await queueClient.EnsureQueueExistsAsync(queueName, autoDelete: true, arguments: new Dictionary<string, object>{{"x-max-priority", 1}});
+
+                await queueClient.PublishAsync("", queueName, "TestValue123", 0);
+                await queueClient.PublishAsync("", queueName, "TestValue456", 1);
+                await queueClient.PublishAsync("", queueName, "TestValue789", 1);
+                await queueClient.PublishAsync("", queueName, "TestValue321", 0);
+
+                var receivedMessages = new List<string>();
+
+                var worker = await SimpleProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
+                    message =>
+                    {
+                        DoSomething(message, out var receivedMessage);
+
+                        receivedMessages.Add(receivedMessage);
+                    }, CancellationToken.None);
+
+                const int timeLimit = 10000;
+
+                var elapsedTime = 0;
+
+                while (receivedMessages.Count < 4 && elapsedTime < timeLimit)
+                {
+                    await Task.Delay(100);
+                    elapsedTime += 100;
+                }
+
+                worker.Stop();
+
+                receivedMessages.Count.ShouldBe(4);
+                receivedMessages[0].ShouldBe("TestValue456");
+                receivedMessages[1].ShouldBe("TestValue789");
+                receivedMessages[2].ShouldBe("TestValue123");
+                receivedMessages[3].ShouldBe("TestValue321");
             }
         }
 
@@ -111,7 +158,7 @@ namespace RabbitMQ.Abstraction.Tests
                 var worker = await SimpleProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
                     batch => BatchDoSomething(batch, receivedMessages), 200, CancellationToken.None, new ConsumerCountManager(1, 1));
 
-                const int timeLimit = 30000;
+                const int timeLimit = 40000;
 
                 var elapsedTime = 0;
 
@@ -152,7 +199,7 @@ namespace RabbitMQ.Abstraction.Tests
                 var worker = await SimpleProcessingWorker<string>.CreateAndStartAsync(queueClient, queueName,
                     batch => BatchDoSomethingOrFail(batch, receivedMessages), 200, CancellationToken.None, new ConsumerCountManager(1, 1));
 
-                const int timeLimit = 60000;
+                const int timeLimit = 90000;
 
                 var elapsedTime = 0;
 

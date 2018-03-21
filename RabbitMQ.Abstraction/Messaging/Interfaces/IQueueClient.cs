@@ -7,10 +7,10 @@ namespace RabbitMQ.Abstraction.Messaging.Interfaces
 {
     public interface IQueueClient : IDisposable
     {
-        Task PublishAsync<T>(string exchangeName, string routingKey, T content);
-        Task BatchPublishAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList);
-        Task BatchPublishTransactionalAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList);
-        Task DelayedPublishAsync<T>(string exchangeName, string routingKey, T content, TimeSpan delay);
+        Task PublishAsync<T>(string exchangeName, string routingKey, T content, byte? priority = null);
+        Task BatchPublishAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList, byte? priority = null);
+        Task BatchPublishTransactionalAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList, byte? priority = null);
+        Task DelayedPublishAsync<T>(string exchangeName, string routingKey, T content, TimeSpan delay, byte? priority = null);
 
         Task QueueDeclareAsync(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false,
             IDictionary<string, object> arguments = null);

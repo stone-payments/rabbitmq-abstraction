@@ -46,7 +46,7 @@ namespace RabbitMQ.Abstraction
             });
         }
 
-        protected async Task QueueDeclareAndBindAsync(string queueName, string routeName, string deadLetterRouteName = null, bool lazy = false)
+        protected async Task QueueDeclareAndBindAsync(string queueName, string routeName, string deadLetterRouteName = null, bool lazy = false, byte? maxPriority = null)
         {
             var queueArguments = new Dictionary<string, object>();
 
@@ -59,6 +59,11 @@ namespace RabbitMQ.Abstraction
             if (lazy)
             {
                 queueArguments.Add("x-queue-mode", "lazy");
+            }
+
+            if (maxPriority != null)
+            {
+                queueArguments.Add("x-max-priority", maxPriority.Value);
             }
 
             await _queueClient.EnsureQueueExistsAsync(queueName, arguments: queueArguments).ConfigureAwait(false);

@@ -109,24 +109,35 @@ namespace RabbitMQ.Abstraction.Messaging
             };
         }
 
-        public async Task PublishAsync<T>(string exchangeName, string routingKey, T content)
+        public async Task PublishAsync<T>(string exchangeName, string routingKey, T content, byte? priority = null)
         {
             var serializedContent = _serializer.Serialize(content);
             using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
             {
                 var props = model.CreateBasicProperties();
                 props.DeliveryMode = 2;
+
+                if (priority != null)
+                {
+                    props.Priority = priority.Value;
+                }
+                
                 var payload = Encoding.UTF8.GetBytes(serializedContent);
                 model.BasicPublish(exchangeName, routingKey, props, payload);
             }
         }
 
-        public async Task BatchPublishAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList)
+        public async Task BatchPublishAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList, byte? priority = null)
         {
             using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
             {
                 var props = model.CreateBasicProperties();
                 props.DeliveryMode = 2;
+
+                if (priority != null)
+                {
+                    props.Priority = priority.Value;
+                }
 
                 foreach (var content in contentList)
                 {
@@ -138,7 +149,7 @@ namespace RabbitMQ.Abstraction.Messaging
             }
         }
 
-        public async Task BatchPublishTransactionalAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList)
+        public async Task BatchPublishTransactionalAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList, byte? priority = null)
         {
             using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
             {
@@ -148,6 +159,11 @@ namespace RabbitMQ.Abstraction.Messaging
 
                     var props = model.CreateBasicProperties();
                     props.DeliveryMode = 2;
+
+                    if (priority != null)
+                    {
+                        props.Priority = priority.Value;
+                    }
 
                     foreach (var content in contentList)
                     {
@@ -171,26 +187,37 @@ namespace RabbitMQ.Abstraction.Messaging
             }
         }
 
-        public async Task DelayedPublishAsync<T>(string exchangeName, string routingKey, T content, TimeSpan delay)
+        public async Task DelayedPublishAsync<T>(string exchangeName, string routingKey, T content, TimeSpan delay, byte? priority = null)
         {
             var serializedContent = _serializer.Serialize(content);
             using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
             {
                 var props = model.CreateBasicProperties();
                 props.DeliveryMode = 2;
+
+                if (priority != null)
+                {
+                    props.Priority = priority.Value;
+                }
+
                 props.Expiration = delay.TotalMilliseconds.ToString(CultureInfo.InvariantCulture);
                 var payload = Encoding.UTF8.GetBytes(serializedContent);
 
                 var queueName = $"delayed.{routingKey}@{exchangeName}.{Guid.NewGuid()}";
 
-                await QueueDeclareAsync(queueName,
-                    arguments:
-                        new Dictionary<string, object>
-                        {
-                            {"x-dead-letter-exchange", exchangeName},
-                            {"x-dead-letter-routing-key", routingKey},
-                            {"x-expires", (long)delay.Add(TimeSpan.FromSeconds(1)).TotalMilliseconds}
-                        }).ConfigureAwait(false);
+                var queueArguments = new Dictionary<string, object>
+                {
+                    {"x-dead-letter-exchange", exchangeName},
+                    {"x-dead-letter-routing-key", routingKey},
+                    {"x-expires", (long) delay.Add(TimeSpan.FromSeconds(1)).TotalMilliseconds},
+                };
+
+                if (priority != null)
+                {
+                    queueArguments.Add("x-max-priority", priority);
+                }
+
+                await QueueDeclareAsync(queueName, arguments: queueArguments).ConfigureAwait(false);
 
                 model.BasicPublish("", queueName, props, payload);
             }

@@ -46,7 +46,7 @@ namespace RabbitMQ.Abstraction
             });
         }
 
-        protected async Task QueueDeclareAndBindAsync(string queueName, string routeName, string deadLetterRouteName = null, bool lazy = false, byte? maxPriority = null)
+        protected async Task QueueDeclareAndBindAsync(string queueName, string routeName, string deadLetterRouteName = null, bool lazy = false, sbyte? maxPriority = null)
         {
             var queueArguments = new Dictionary<string, object>();
 

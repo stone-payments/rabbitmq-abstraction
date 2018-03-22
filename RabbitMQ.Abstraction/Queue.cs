@@ -4,9 +4,9 @@
     {
         public string Name { get; private set; }
 
-        public byte? MaxPriority { get; private set; }
+        public sbyte? MaxPriority { get; private set; }
 
-        public Queue(string name, byte? maxPriority = null)
+        public Queue(string name, sbyte? maxPriority = null)
         {
             Name = name;
 

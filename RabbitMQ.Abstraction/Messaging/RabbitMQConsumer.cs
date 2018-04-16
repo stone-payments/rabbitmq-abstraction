@@ -10,26 +10,31 @@ namespace RabbitMQ.Abstraction.Messaging
     {
         private readonly IMessageProcessingWorker<T> _messageProcessingWorker;
 
-        public RabbitMQConsumer(RabbitMQConnectionPool connectionPool, string queueName,
+        public RabbitMQConsumer(IRabbitMQPersistentConnection persistentConnection, string queueName,
             IMessageProcessingWorker<T> messageProcessingWorker, ISerializer serializer = null, ILogger logger = null,
             IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
-            : base(connectionPool, queueName, serializer, logger, consumerCountManager, messageRejectionHandler)
+            : base(persistentConnection, queueName, serializer, logger, consumerCountManager, messageRejectionHandler)
         {
             _messageProcessingWorker = messageProcessingWorker;
         }
 
         protected override async Task<IQueueConsumerWorker> CreateNewConsumerWorkerAsync()
         {
-            var newConsumerWorker = new RabbitMQConsumerWorker<T>(
-                connection: await ConnectionPool.GetConnectionAsync().ConfigureAwait(false),
-                queueName: QueueName,
-                messageProcessingWorker: _messageProcessingWorker,
-                messageRejectionHandler: MessageRejectionHandler,
-                serializer: Serializer,
-                scaleCallbackFunc: TryScaleDown
-            );
+            var result = await Task.Factory.StartNew(() =>
+            {
+                var newConsumerWorker = new RabbitMQConsumerWorker<T>(
+                    connection: PersistentConnection.connection,
+                    queueName: QueueName,
+                    messageProcessingWorker: _messageProcessingWorker,
+                    messageRejectionHandler: MessageRejectionHandler,
+                    serializer: Serializer,
+                    scaleCallbackFunc: TryScaleDown
+                );
 
-            return newConsumerWorker;
+                return newConsumerWorker;
+            });
+
+            return result;
         }
     }
 }

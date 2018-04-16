@@ -6,103 +6,103 @@ using RabbitMQ.Client;
 
 namespace RabbitMQ.Abstraction.Messaging
 {
-    public class RabbitMQConnectionPool : IDisposable
-    {
-        public readonly ConnectionFactory ConnectionFactory;
+    //public class RabbitMQConnectionPool : IDisposable
+    //{
+    //    public readonly ConnectionFactory ConnectionFactory;
 
-        private readonly List<IConnection> _connections;
+    //    private readonly List<IConnection> _connections;
 
-        private readonly uint _poolSize;
+    //    private readonly uint _poolSize;
 
-        public RabbitMQConnectionPool(ConnectionFactory connectionFactory)
-        {
-            ConnectionFactory = connectionFactory;
+    //    public RabbitMQConnectionPool(ConnectionFactory connectionFactory)
+    //    {
+    //        ConnectionFactory = connectionFactory;
 
-            _connections = new List<IConnection>();
+    //        _connections = new List<IConnection>();
 
-            if (_poolSize == 0)
-            {
-                _poolSize = 1;
-            }
+    //        if (_poolSize == 0)
+    //        {
+    //            _poolSize = 1;
+    //        }
 
-            EnsurePoolSize();
-        }
+    //        EnsurePoolSize();
+    //    }
 
-        public async Task<IConnection> GetConnectionAsync()
-        {
-            EnsurePoolSize();
+    //    public async Task<IConnection> GetConnectionAsync()
+    //    {
+    //        EnsurePoolSize();
 
-            IConnection elegibleConnection;
+    //        IConnection elegibleConnection;
 
-            lock(_connections)
-            {
-                elegibleConnection = _connections.FirstOrDefault(c => c.IsOpen);
-            }
+    //        lock(_connections)
+    //        {
+    //            elegibleConnection = _connections.FirstOrDefault(c => c.IsOpen);
+    //        }
 
-            if(elegibleConnection == null)
-            {
-                elegibleConnection = await GetConnectionAsync().ConfigureAwait(false);
-            }
+    //        if(elegibleConnection == null)
+    //        {
+    //            elegibleConnection = await GetConnectionAsync().ConfigureAwait(false);
+    //        }
 
-            var connection = await EnsureConnectionOpenAsync(elegibleConnection).ConfigureAwait(false);
+    //        var connection = await EnsureConnectionOpenAsync(elegibleConnection).ConfigureAwait(false);
 
-            return connection;
-        }
+    //        return connection;
+    //    }
 
-        private async Task<IConnection> EnsureConnectionOpenAsync(IConnection connection)
-        {
-            IConnection ensuredConnection;
+    //    private async Task<IConnection> EnsureConnectionOpenAsync(IConnection connection)
+    //    {
+    //        IConnection ensuredConnection;
 
-            try
-            {
-                var model = connection.CreateModel();
+    //        try
+    //        {
+    //            var model = connection.CreateModel();
 
-                model.Dispose();
+    //            model.Dispose();
 
-                ensuredConnection = connection;
-            }
-            catch (Exception)
-            {
-                //TODO: Review this lock
-                lock (_connections)
-                {
-                    _connections.Remove(connection);
-                }
+    //            ensuredConnection = connection;
+    //        }
+    //        catch (Exception)
+    //        {
+    //            //TODO: Review this lock
+    //            lock (_connections)
+    //            {
+    //                _connections.Remove(connection);
+    //            }
 
-                await Task.Delay(TimeSpan.FromMilliseconds(100)).ConfigureAwait(false);
+    //            await Task.Delay(TimeSpan.FromMilliseconds(100)).ConfigureAwait(false);
 
-                ensuredConnection = await GetConnectionAsync().ConfigureAwait(false);
-            }
+    //            ensuredConnection = await GetConnectionAsync().ConfigureAwait(false);
+    //        }
             
-            return ensuredConnection;
-        }
+    //        return ensuredConnection;
+    //    }
 
-        private void EnsurePoolSize()
-        {
-            lock(_connections)
-            {
-                _connections.RemoveAll(c => c.IsOpen == false);
+    //    private void EnsurePoolSize()
+    //    {
+    //        lock(_connections)
+    //        {
+    //            _connections.RemoveAll(c => c.IsOpen == false);
 
-                var newConnectionsNeeded = Convert.ToInt32(_poolSize - _connections.Count);
+    //            var newConnectionsNeeded = Convert.ToInt32(_poolSize - _connections.Count);
 
-                for (var i = 0; i < newConnectionsNeeded; i++)
-                {
-                    _connections.Add(ConnectionFactory.CreateConnection());
-                }
-            }
-        }
+    //            for (var i = 0; i < newConnectionsNeeded; i++)
+    //            {
+    //                _connections.Add(ConnectionFactory.CreateConnection());
+    //            }
+    //        }
+    //    }
 
-        public void Dispose()
-        {
-            lock(_connections)
-            {
-                foreach (var connection in _connections.Where(c => c.IsOpen))
-                {
-                    connection.Close();
-                }
+    //    public void Dispose()
+    //    {
+    //        lock(_connections)
+    //        {
+    //            foreach (var connection in _connections.Where(c => c.IsOpen))
+    //            {
+    //                connection.Close();
+    //            }
 
-                _connections.RemoveAll(c => c.IsOpen == false);
-            }
-        }
-    }
+    //            _connections.RemoveAll(c => c.IsOpen == false);
+    //        }
+    //    }
+    //}
 }

@@ -13,7 +13,7 @@ namespace RabbitMQ.Abstraction.Messaging
 {
     public abstract class AbstractRabbitMQConsumer : IQueueConsumer
     {
-        protected readonly RabbitMQConnectionPool ConnectionPool;
+        protected readonly IRabbitMQPersistentConnection PersistentConnection;
 
         protected readonly string QueueName;
 
@@ -32,16 +32,16 @@ namespace RabbitMQ.Abstraction.Messaging
 
         private readonly object _scalingLock = new object();
 
-        protected AbstractRabbitMQConsumer(RabbitMQConnectionPool connectionPool, string queueName, 
+        protected AbstractRabbitMQConsumer(IRabbitMQPersistentConnection persistentConnection, string queueName, 
             ISerializer serializer = null, ILogger logger = null, 
             IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
         {
-            ConnectionPool = connectionPool;
+            PersistentConnection = persistentConnection;
             QueueName = queueName;
             Serializer = serializer ?? new JsonSerializer();
             _logger = logger;
             _consumerCountManager = consumerCountManager ?? new ConsumerCountManager();
-            MessageRejectionHandler = messageRejectionHandler ?? new MessageDeserializationRejectionHandler(connectionPool);
+            MessageRejectionHandler = messageRejectionHandler ?? new MessageDeserializationRejectionHandler(persistentConnection);
 
             _consumerWorkersCount = 0;
             _cancellationTokenSource = new CancellationTokenSource();
@@ -67,18 +67,28 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public async Task<uint> GetMessageCountAsync()
         {
-            using (var model = (await ConnectionPool.GetConnectionAsync()).CreateModel())
+            var result = await Task.Factory.StartNew(() =>
             {
-                return GetMessageCount(model);
-            }
+                using (var model = PersistentConnection.CreateModel())
+                {
+                    return GetMessageCount(model);
+                }
+            });
+
+            return result;
         }
 
         public async Task<uint> GetConsumerCountAsync()
         {
-            using (var model = (await ConnectionPool.GetConnectionAsync()).CreateModel())
+            var result = await Task.Factory.StartNew(() =>
             {
-                return GetConsumerCount(model);
-            }
+                using (var model = PersistentConnection.CreateModel())
+                {
+                    return GetConsumerCount(model);
+                }
+            });
+
+            return result;
         }
 
         protected virtual async Task ManageConsumersLoopAsync(CancellationToken cancellationToken)
@@ -170,19 +180,24 @@ namespace RabbitMQ.Abstraction.Messaging
 
         private async Task<QueueInfo> CreateQueueInfoAsync()
         {
-            QueueInfo queueInfo;
-            using (var model = (await ConnectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
+            var result = await Task.Factory.StartNew(() =>
             {
-                var queueDeclareOk = model.QueueDeclarePassive(QueueName);
-
-                queueInfo = new QueueInfo
+                QueueInfo queueInfo;
+                using (var model = PersistentConnection.CreateModel())
                 {
-                    QueueName = QueueName,
-                    ConsumerCount = queueDeclareOk.ConsumerCount,
-                    MessageCount = queueDeclareOk.MessageCount
-                };
-            }
-            return queueInfo;
+                    var queueDeclareOk = model.QueueDeclarePassive(QueueName);
+
+                    queueInfo = new QueueInfo
+                    {
+                        QueueName = QueueName,
+                        ConsumerCount = queueDeclareOk.ConsumerCount,
+                        MessageCount = queueDeclareOk.MessageCount
+                    };
+                }
+                return queueInfo;
+            });
+
+            return result;
         }
 
         private uint GetMessageCount(IModel model)

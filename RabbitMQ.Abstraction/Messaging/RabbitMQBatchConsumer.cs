@@ -10,24 +10,29 @@ namespace RabbitMQ.Abstraction.Messaging
     {
         private readonly IBatchProcessingWorker<T> _batchProcessingWorker;
 
-        public RabbitMQBatchConsumer(RabbitMQConnectionPool connectionPool, string queueName, IBatchProcessingWorker<T> batchProcessingWorker, ISerializer serializer = null, ILogger logger = null, IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null) 
-            : base(connectionPool, queueName, serializer, logger, consumerCountManager, messageRejectionHandler)
+        public RabbitMQBatchConsumer(IRabbitMQPersistentConnection persistentConnection, string queueName, IBatchProcessingWorker<T> batchProcessingWorker, ISerializer serializer = null, ILogger logger = null, IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null) 
+            : base(persistentConnection, queueName, serializer, logger, consumerCountManager, messageRejectionHandler)
         {
             _batchProcessingWorker = batchProcessingWorker;
         }
 
         protected override async Task<IQueueConsumerWorker> CreateNewConsumerWorkerAsync()
         {
-            var newConsumerWorker = new RabbitMQBatchConsumerWorker<T>(
-                connection: await ConnectionPool.GetConnectionAsync().ConfigureAwait(false),
-                queueName: QueueName,
-                batchProcessingWorker: _batchProcessingWorker,
-                messageRejectionHandler: MessageRejectionHandler,
-                serializer: Serializer,
-                scaleCallbackFunc: TryScaleDown
-            );
+            var result = await Task.Factory.StartNew(() =>
+            {
+                var newConsumerWorker = new RabbitMQBatchConsumerWorker<T>(
+                    connection: PersistentConnection.connection,
+                    queueName: QueueName,
+                    batchProcessingWorker: _batchProcessingWorker,
+                    messageRejectionHandler: MessageRejectionHandler,
+                    serializer: Serializer,
+                    scaleCallbackFunc: TryScaleDown
+                );
 
-            return newConsumerWorker;
+                return newConsumerWorker;
+            });
+
+            return result;
         }
     }
 }

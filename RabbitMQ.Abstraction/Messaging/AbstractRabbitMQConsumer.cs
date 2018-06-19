@@ -87,45 +87,52 @@ namespace RabbitMQ.Abstraction.Messaging
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    var queueInfo = await CreateQueueInfoAsync().ConfigureAwait(false);
-
-                    var consumerStartTasks = new List<Task>();
-                    lock (_scalingLock)
+                    try
                     {
-                        _scalingAmount = _consumerCountManager.GetScalingAmount(queueInfo, _consumerWorkersCount);
-                        int counter = _scalingAmount;
-                        for (var i = 1; i <= counter; i++)
+                        var queueInfo = await CreateQueueInfoAsync().ConfigureAwait(false);
+
+                        var consumerStartTasks = new List<Task>();
+                        lock (_scalingLock)
                         {
-                            consumerStartTasks.Add(Task.Factory.StartNew(async () =>
+                            _scalingAmount = _consumerCountManager.GetScalingAmount(queueInfo, _consumerWorkersCount);
+                            int counter = _scalingAmount;
+                            for (var i = 1; i <= counter; i++)
                             {
-                                try
+                                consumerStartTasks.Add(Task.Factory.StartNew(async () =>
                                 {
-                                    Interlocked.Decrement(ref _scalingAmount);
-                                    Interlocked.Increment(ref _consumerWorkersCount);
-
-                                    using (IQueueConsumerWorker consumerWorker = await CreateNewConsumerWorkerAsync().ConfigureAwait(false))
+                                    try
                                     {
-                                        await consumerWorker.DoConsumeAsync(cancellationToken).ConfigureAwait(false);
+                                        Interlocked.Decrement(ref _scalingAmount);
+                                        Interlocked.Increment(ref _consumerWorkersCount);
+
+                                        using (IQueueConsumerWorker consumerWorker = await CreateNewConsumerWorkerAsync().ConfigureAwait(false))
+                                        {
+                                            await consumerWorker.DoConsumeAsync(cancellationToken).ConfigureAwait(false);
+                                        }
                                     }
-                                }
-                                catch (Exception exception)
-                                {
-                                    Interlocked.Increment(ref _scalingAmount);
-                                    Interlocked.Decrement(ref _consumerWorkersCount);
+                                    catch (Exception exception)
+                                    {
+                                        Interlocked.Increment(ref _scalingAmount);
+                                        Interlocked.Decrement(ref _consumerWorkersCount);
 
-                                    _logger?.LogError($"{exception.Message}{Environment.NewLine}{exception.StackTrace}",
-                                        new Dictionary<string, string>
-                                            {
-                                            {"RabbitMQ.AdvancedConsumer", exception.ToString()},
-                                            {"QueueName", QueueName}
-                                            });
-                                }
-                            }, cancellationToken));
+                                        _logger?.LogError($"{exception.Message}{Environment.NewLine}{exception.StackTrace}",
+                                            new Dictionary<string, string>
+                                                {
+                                                    {"RabbitMQ.AdvancedConsumer", exception.ToString()},
+                                                    {"QueueName", QueueName}
+                                                });
+                                    }
+                                }, cancellationToken));
+                            }
                         }
-                    }
-                    await Task.WhenAll(consumerStartTasks).ConfigureAwait(false);
+                        await Task.WhenAll(consumerStartTasks).ConfigureAwait(false);
 
-                    await Task.Delay(_consumerCountManager.AutoscaleFrequency, cancellationToken).ConfigureAwait(false);
+                        await Task.Delay(_consumerCountManager.AutoscaleFrequency, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (Exception e)
+                    {
+                        _logger?.LogError($"{e.Message}{Environment.NewLine}{e.StackTrace}");
+                    }
                 }
             }
             catch (Exception e)

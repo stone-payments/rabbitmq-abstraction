@@ -91,14 +91,13 @@ namespace RabbitMQ.Abstraction.Messaging
                     {
                         var queueInfo = await CreateQueueInfoAsync().ConfigureAwait(false);
 
-                        var consumerStartTasks = new List<Task>();
                         lock (_scalingLock)
                         {
                             _scalingAmount = _consumerCountManager.GetScalingAmount(queueInfo, _consumerWorkersCount);
                             int counter = _scalingAmount;
                             for (var i = 1; i <= counter; i++)
                             {
-                                consumerStartTasks.Add(Task.Factory.StartNew(async () =>
+                                Task.Factory.StartNew(async () =>
                                 {
                                     try
                                     {
@@ -122,10 +121,9 @@ namespace RabbitMQ.Abstraction.Messaging
                                                     {"QueueName", QueueName}
                                                 });
                                     }
-                                }, cancellationToken));
+                                }, cancellationToken);
                             }
                         }
-                        await Task.WhenAll(consumerStartTasks).ConfigureAwait(false);
 
                         await Task.Delay(_consumerCountManager.AutoscaleFrequency, cancellationToken).ConfigureAwait(false);
                     }
@@ -134,6 +132,8 @@ namespace RabbitMQ.Abstraction.Messaging
                         _logger?.LogError($"{e.Message}{Environment.NewLine}{e.StackTrace}");
                     }
                 }
+
+                _logger?.LogWarning("Stopped consumer AutoScaling");
             }
             catch (Exception e)
             {

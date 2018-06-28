@@ -114,7 +114,7 @@ namespace RabbitMQ.Abstraction.Messaging
                                         Interlocked.Increment(ref _scalingAmount);
                                         Interlocked.Decrement(ref _consumerWorkersCount);
 
-                                        _logger?.LogError($"{exception.Message}{Environment.NewLine}{exception.StackTrace}",
+                                        _logger?.LogError(exception, $"{exception.Message}{Environment.NewLine}{exception.StackTrace}",
                                             new Dictionary<string, string>
                                                 {
                                                     {"RabbitMQ.AdvancedConsumer", exception.ToString()},
@@ -129,7 +129,7 @@ namespace RabbitMQ.Abstraction.Messaging
                     }
                     catch (Exception e)
                     {
-                        _logger?.LogError($"{e.Message}{Environment.NewLine}{e.StackTrace}");
+                        _logger?.LogError(e, $"{e.Message}{Environment.NewLine}{e.StackTrace}");
                     }
                 }
 
@@ -137,7 +137,7 @@ namespace RabbitMQ.Abstraction.Messaging
             }
             catch (Exception e)
             {
-                _logger?.LogError($"{e.Message}{Environment.NewLine}{e.StackTrace}");
+                _logger?.LogError(e, $"{e.Message}{Environment.NewLine}{e.StackTrace}");
                 throw;
             }
         }

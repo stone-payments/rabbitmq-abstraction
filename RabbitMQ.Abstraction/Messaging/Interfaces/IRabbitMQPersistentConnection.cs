@@ -13,12 +13,6 @@ namespace RabbitMQ.Abstraction.Messaging.Interfaces
 
         IConnection connection { get; set; }
 
-        string UserName { get; set; }
-
-        string Password { get; set; }
-
-        string HostName { get; set; }
-
-        int Port { get; set; }
+        ConnectionFactory ConnectionFactory { get; set; }
     }
 }

@@ -1,51 +1,42 @@
 ﻿using RabbitMQ.Abstraction.Messaging.Interfaces;
 using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
 using RabbitMQ.Client.Exceptions;
 using System;
 using System.IO;
 using System.Net.Sockets;
+using Microsoft.Extensions.Logging;
 
 namespace RabbitMQ.Abstraction.Messaging
 {
     public class RabbitMQPersistentConnection : IRabbitMQPersistentConnection
     {
-        private readonly IConnectionFactory _connectionFactory;
+        public ConnectionFactory ConnectionFactory { get; set; }
 
-        private readonly object locker = new object();
+        private readonly object _locker = new object();
 
-        private bool initialized;
+        private bool _initialized;
 
         public IConnection connection { get; set; }
 
-        public string UserName { get; set; }
+        private readonly ILogger _logger;
 
-        public string Password { get; set; }
-
-        public string HostName { get; set; }
-
-        public int Port { get; set; }
-
-        public RabbitMQPersistentConnection(IConnectionFactory connectionFactory)
+        public RabbitMQPersistentConnection(ConnectionFactory connectionFactory, ILogger logger)
         {
-            this._connectionFactory = connectionFactory;
-            UserName = "guest";
-            Password = "guest";
-            HostName = "localhost";
-            Port = 5672;
+            this.ConnectionFactory = connectionFactory;
+            _logger = logger;
 
             Initialize();
         }
 
         public void Initialize()
         {
-            lock (locker)
+            lock (_locker)
             {
-                if (initialized)
+                if (_initialized)
                 {
                     throw new Exception("This PersistentConnection has already been initialized.");
                 }
-                initialized = true;
+                _initialized = true;
                 TryToConnect();
             }
         }
@@ -60,24 +51,24 @@ namespace RabbitMQ.Abstraction.Messaging
             return connection.CreateModel();
         }
 
-        public bool IsConnected => connection != null && connection.IsOpen && !disposed;
+        public bool IsConnected => connection != null && connection.IsOpen && !_disposed;
 
         private void TryToConnect()
         {
-            if (disposed) return;
+            if (_disposed) return;
 
-            bool Succeeded = false;
+            bool succeeded = false;
 
             try
             {
-                connection = _connectionFactory.CreateConnection(); // A possible dispose race condition exists, whereby the Dispose() method may run while this loop is waiting on connectionFactory.CreateConnection() returning a connection.  In that case, a connection could be created and assigned to the connection variable, without it ever being later disposed, leading to app hang on shutdown.  The following if clause guards against this condition and ensures such connections are always disposed.
+                connection = ConnectionFactory.CreateConnection(); // A possible dispose race condition exists, whereby the Dispose() method may run while this loop is waiting on connectionFactory.CreateConnection() returning a connection.  In that case, a connection could be created and assigned to the connection variable, without it ever being later disposed, leading to app hang on shutdown.  The following if clause guards against this condition and ensures such connections are always disposed.
 
-                if (disposed)
+                if (_disposed)
                 {
                     connection.Dispose();
                 }
 
-                Succeeded = true;
+                succeeded = true;
             }
             catch (SocketException socketException)
             {
@@ -88,16 +79,13 @@ namespace RabbitMQ.Abstraction.Messaging
                 LogException(brokerUnreachableException);
             }
 
-            if (Succeeded)
+            if (succeeded)
             {
                 connection.ConnectionShutdown += OnConnectionShutdown;
-                connection.ConnectionBlocked += OnConnectionBlocked;
-                connection.ConnectionUnblocked += OnConnectionUnblocked;
-                OnConnected();
             }
             else
             {
-                if (!disposed)
+                if (!_disposed)
                 {
                     TryToConnect();
                 }
@@ -112,38 +100,23 @@ namespace RabbitMQ.Abstraction.Messaging
             {
                 exceptionMessage = $"{exceptionMessage} ({exception.InnerException.Message})";
             }
+
+            _logger?.LogError(exception, exceptionMessage);
         }
 
         private void OnConnectionShutdown(object sender, ShutdownEventArgs e)
         {
-            if (disposed) return;
-            OnDisconnected();
+            if (_disposed) return;
 
             TryToConnect();
         }
 
-        private void OnConnectionBlocked(object sender, ConnectionBlockedEventArgs e)
-        {
-        }
-
-        private void OnConnectionUnblocked(object sender, EventArgs e)
-        {
-        }
-
-        public void OnConnected()
-        {
-        }
-
-        public void OnDisconnected()
-        {
-        }
-
-        private bool disposed;
+        private bool _disposed;
 
         public void Dispose()
         {
-            if (disposed) return;
-            disposed = true;
+            if (_disposed) return;
+            _disposed = true;
             if (connection != null)
             {
                 try

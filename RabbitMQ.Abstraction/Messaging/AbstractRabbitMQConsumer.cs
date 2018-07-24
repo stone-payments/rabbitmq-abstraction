@@ -65,30 +65,20 @@ namespace RabbitMQ.Abstraction.Messaging
             }
         }
 
-        public async Task<uint> GetMessageCountAsync()
+        public Task<uint> GetMessageCountAsync()
         {
-            var result = await Task.Factory.StartNew(() =>
+            using (var model = PersistentConnection.CreateModel())
             {
-                using (var model = PersistentConnection.CreateModel())
-                {
-                    return GetMessageCount(model);
-                }
-            });
-
-            return result;
+                return Task.FromResult(GetMessageCount(model));
+            }
         }
 
-        public async Task<uint> GetConsumerCountAsync()
+        public Task<uint> GetConsumerCountAsync()
         {
-            var result = await Task.Factory.StartNew(() =>
+            using (var model = PersistentConnection.CreateModel())
             {
-                using (var model = PersistentConnection.CreateModel())
-                {
-                    return GetConsumerCount(model);
-                }
-            });
-
-            return result;
+                return Task.FromResult(GetConsumerCount(model));
+            }
         }
 
         protected virtual async Task ManageConsumersLoopAsync(CancellationToken cancellationToken)
@@ -178,26 +168,21 @@ namespace RabbitMQ.Abstraction.Messaging
             Stop().Wait();
         }
 
-        private async Task<QueueInfo> CreateQueueInfoAsync()
+        private Task<QueueInfo> CreateQueueInfoAsync()
         {
-            var result = await Task.Factory.StartNew(() =>
+            QueueInfo queueInfo;
+            using (var model = PersistentConnection.CreateModel())
             {
-                QueueInfo queueInfo;
-                using (var model = PersistentConnection.CreateModel())
+                var queueDeclareOk = model.QueueDeclarePassive(QueueName);
+
+                queueInfo = new QueueInfo
                 {
-                    var queueDeclareOk = model.QueueDeclarePassive(QueueName);
-
-                    queueInfo = new QueueInfo
-                    {
-                        QueueName = QueueName,
-                        ConsumerCount = queueDeclareOk.ConsumerCount,
-                        MessageCount = queueDeclareOk.MessageCount
-                    };
-                }
-                return queueInfo;
-            });
-
-            return result;
+                    QueueName = QueueName,
+                    ConsumerCount = queueDeclareOk.ConsumerCount,
+                    MessageCount = queueDeclareOk.MessageCount
+                };
+            }
+            return Task.FromResult(queueInfo);
         }
 
         private uint GetMessageCount(IModel model)

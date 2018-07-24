@@ -53,7 +53,7 @@ namespace RabbitMQ.Abstraction.Messaging
                 NetworkRecoveryInterval = new TimeSpan(0, 0, 0, 10)
             };
 
-            _persistentConnection = new RabbitMQPersistentConnection(connectionFactory);
+            _persistentConnection = new RabbitMQPersistentConnection(connectionFactory, logger);
             _serializer = serializer ?? new JsonSerializer();
             _logger = logger;
 
@@ -75,7 +75,7 @@ namespace RabbitMQ.Abstraction.Messaging
                 NetworkRecoveryInterval = new TimeSpan(0, 0, 0, 10)
             };
 
-            _persistentConnection = new RabbitMQPersistentConnection(connectionFactory);
+            _persistentConnection = new RabbitMQPersistentConnection(connectionFactory, logger);
             _serializer = serializer ?? new JsonSerializer();
             _logger = logger;
 
@@ -84,7 +84,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public RabbitMQClient(ConnectionFactory connectionFactory, ISerializer serializer = null, ILogger logger = null)
         {
-            _persistentConnection = new RabbitMQPersistentConnection(connectionFactory);
+            _persistentConnection = new RabbitMQPersistentConnection(connectionFactory, logger);
             _serializer = serializer ?? new JsonSerializer();
             _logger = logger;
 
@@ -98,10 +98,11 @@ namespace RabbitMQ.Abstraction.Messaging
             _logger = logger;
 
             _httpClient = GetHttpClient(
-                _persistentConnection.UserName,
-                _persistentConnection.Password,
-                _persistentConnection.HostName,
-                _persistentConnection.Port);
+                _persistentConnection.ConnectionFactory.UserName,
+                _persistentConnection.ConnectionFactory.Password,
+                _persistentConnection.ConnectionFactory.HostName,
+                _persistentConnection.ConnectionFactory.Port
+                );
         }
 
         private static HttpClient GetHttpClient(string username, string password, string host, int port)
@@ -116,33 +117,58 @@ namespace RabbitMQ.Abstraction.Messaging
             };
         }
 
-        public async Task PublishAsync<T>(string exchangeName, string routingKey, T content, byte? priority = null)
+        public Task PublishAsync<T>(string exchangeName, string routingKey, T content, byte? priority = null)
         {
-            await Task.Factory.StartNew(() =>
+            var serializedContent = _serializer.Serialize(content);
+            using (var model = _persistentConnection.CreateModel())
             {
-                var serializedContent = _serializer.Serialize(content);
-                using (var model = _persistentConnection.CreateModel())
-                {
-                    var props = model.CreateBasicProperties();
-                    props.DeliveryMode = 2;
+                var props = model.CreateBasicProperties();
+                props.DeliveryMode = 2;
 
-                    if (priority != null)
-                    {
-                        props.Priority = priority.Value;
-                    }
+                if (priority != null)
+                {
+                    props.Priority = priority.Value;
+                }
+
+                var payload = Encoding.UTF8.GetBytes(serializedContent);
+                model.BasicPublish(exchangeName, routingKey, props, payload);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task BatchPublishAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList, byte? priority = null)
+        {
+            using (var model = _persistentConnection.CreateModel())
+            {
+                var props = model.CreateBasicProperties();
+                props.DeliveryMode = 2;
+
+                if (priority != null)
+                {
+                    props.Priority = priority.Value;
+                }
+
+                foreach (var content in contentList)
+                {
+                    var serializedContent = _serializer.Serialize(content);
 
                     var payload = Encoding.UTF8.GetBytes(serializedContent);
                     model.BasicPublish(exchangeName, routingKey, props, payload);
                 }
-            });
+            }
+
+            return Task.CompletedTask;
         }
 
-        public async Task BatchPublishAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList, byte? priority = null)
+        public Task BatchPublishTransactionalAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList, byte? priority = null)
         {
-            await Task.Factory.StartNew(() =>
+            using (var model = _persistentConnection.CreateModel())
             {
-                using (var model = _persistentConnection.CreateModel())
+                try
                 {
+                    model.TxSelect();
+
                     var props = model.CreateBasicProperties();
                     props.DeliveryMode = 2;
 
@@ -158,49 +184,21 @@ namespace RabbitMQ.Abstraction.Messaging
                         var payload = Encoding.UTF8.GetBytes(serializedContent);
                         model.BasicPublish(exchangeName, routingKey, props, payload);
                     }
-                }
-            });
-        }
 
-        public async Task BatchPublishTransactionalAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList, byte? priority = null)
-        {
-            await Task.Factory.StartNew(() =>
-            {
-                using (var model = _persistentConnection.CreateModel())
+                    model.TxCommit();
+                }
+                catch (Exception)
                 {
-                    try
+                    if (model.IsOpen)
                     {
-                        model.TxSelect();
-
-                        var props = model.CreateBasicProperties();
-                        props.DeliveryMode = 2;
-
-                        if (priority != null)
-                        {
-                            props.Priority = priority.Value;
-                        }
-
-                        foreach (var content in contentList)
-                        {
-                            var serializedContent = _serializer.Serialize(content);
-
-                            var payload = Encoding.UTF8.GetBytes(serializedContent);
-                            model.BasicPublish(exchangeName, routingKey, props, payload);
-                        }
-
-                        model.TxCommit();
+                        model.TxRollback();
                     }
-                    catch (Exception)
-                    {
-                        if (model.IsOpen)
-                        {
-                            model.TxRollback();
-                        }
 
-                        throw;
-                    }
+                    throw;
                 }
-            });
+            }
+
+            return Task.CompletedTask;
         }
 
         public async Task DelayedPublishAsync<T>(string exchangeName, string routingKey, T content, TimeSpan delay, byte? priority = null)
@@ -239,91 +237,77 @@ namespace RabbitMQ.Abstraction.Messaging
             }
         }
 
-        public async Task QueueDeclareAsync(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false,
+        public Task QueueDeclareAsync(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false,
             IDictionary<string, object> arguments = null)
         {
-            await Task.Factory.StartNew(() =>
+            using (var model = _persistentConnection.CreateModel())
             {
-                using (var model = _persistentConnection.CreateModel())
-                {
-                    model.QueueDeclare(queueName, durable, exclusive, autoDelete, arguments);
-                }
-            });
+                model.QueueDeclare(queueName, durable, exclusive, autoDelete, arguments);
+            }
+
+            return Task.CompletedTask;
         }
 
-        public async Task QueueDeclarePassiveAsync(string queueName)
+        public Task QueueDeclarePassiveAsync(string queueName)
         {
-            await Task.Factory.StartNew(() =>
+            using (var model = _persistentConnection.CreateModel())
             {
-                using (var model = _persistentConnection.CreateModel())
+                model.QueueDeclarePassive(queueName);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task<uint> QueueDeleteAsync(string queueName)
+        {
+            using (var model = _persistentConnection.CreateModel())
+            {
+                return Task.FromResult(model.QueueDelete(queueName));
+            }
+        }
+
+        public Task QueueBindAsync(string queueName, string exchangeName, string routingKey)
+        {
+            using (var model = _persistentConnection.CreateModel())
+            {
+                model.QueueBind(queueName, exchangeName, routingKey);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task ExchangeDeclareAsync(string exchangeName, bool passive = false)
+        {
+            using (var model = _persistentConnection.CreateModel())
+            {
+                if (passive)
+                {
+                    model.ExchangeDeclarePassive(exchangeName);
+                }
+                else
+                {
+                    model.ExchangeDeclare(exchangeName, ExchangeType.Topic, true);
+                }
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task<bool> QueueExistsAsync(string queueName)
+        {
+            using (var model = _persistentConnection.CreateModel())
+            {
+                try
                 {
                     model.QueueDeclarePassive(queueName);
                 }
-            });
-        }
-
-        public async Task<uint> QueueDeleteAsync(string queueName)
-        {
-            var result = await Task.Factory.StartNew(() =>
-            {
-                using (var model = _persistentConnection.CreateModel())
+                catch (Exception)
                 {
-                    return model.QueueDelete(queueName);
+                    return Task.FromResult(false);
                 }
-            });
 
-            return result;
-        }
-
-        public async Task QueueBindAsync(string queueName, string exchangeName, string routingKey)
-        {
-            await Task.Factory.StartNew(() =>
-            {
-                using (var model = _persistentConnection.CreateModel())
-                {
-                    model.QueueBind(queueName, exchangeName, routingKey);
-                }
-            });
-        }
-
-        public async Task ExchangeDeclareAsync(string exchangeName, bool passive = false)
-        {
-            await Task.Factory.StartNew(() =>
-            {
-                using (var model = _persistentConnection.CreateModel())
-                {
-                    if (passive)
-                    {
-                        model.ExchangeDeclarePassive(exchangeName);
-                    }
-                    else
-                    {
-                        model.ExchangeDeclare(exchangeName, ExchangeType.Topic, true);
-                    }
-                }
-            });
-        }
-
-        public async Task<bool> QueueExistsAsync(string queueName)
-        {
-            var result = await Task.Factory.StartNew(() =>
-            {
-                using (var model = _persistentConnection.CreateModel())
-                {
-                    try
-                    {
-                        model.QueueDeclarePassive(queueName);
-                    }
-                    catch (Exception)
-                    {
-                        return false;
-                    }
-
-                    return true;
-                }
-            });
-
-            return result;
+                return Task.FromResult(true);
+            }
         }
 
         public async Task EnsureQueueExistsAsync(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false,
@@ -335,48 +319,33 @@ namespace RabbitMQ.Abstraction.Messaging
             }
         }
 
-        public async Task<uint> QueuePurgeAsync(string queueName)
+        public Task<uint> QueuePurgeAsync(string queueName)
         {
-            var result = await Task.Factory.StartNew(() =>
+            using (var model = _persistentConnection.CreateModel())
             {
-                using (var model = _persistentConnection.CreateModel())
-                {
-                    var returnValue = model.QueuePurge(queueName);
-                    return returnValue;
-                }
-            });
-
-            return result;
+                var returnValue = model.QueuePurge(queueName);
+                return Task.FromResult(returnValue);
+            }
         }
 
-        public async Task<uint> GetMessageCountAsync(string queueName)
+        public Task<uint> GetMessageCountAsync(string queueName)
         {
-            var result = await Task.Factory.StartNew(() =>
+            using (var model = _persistentConnection.CreateModel())
             {
-                using (var model = _persistentConnection.CreateModel())
-                {
-                    var queueDeclareOk = model.QueueDeclarePassive(queueName);
+                var queueDeclareOk = model.QueueDeclarePassive(queueName);
 
-                    return queueDeclareOk.MessageCount;
-                }
-            });
-
-            return result;
+                return Task.FromResult(queueDeclareOk.MessageCount);
+            }
         }
 
-        public async Task<uint> GetConsumerCountAsync(string queueName)
+        public Task<uint> GetConsumerCountAsync(string queueName)
         {
-            var result = await Task.Factory.StartNew(() =>
+            using (var model = _persistentConnection.CreateModel())
             {
-                using (var model = _persistentConnection.CreateModel())
-                {
-                    var queueDeclareOk = model.QueueDeclarePassive(queueName);
+                var queueDeclareOk = model.QueueDeclarePassive(queueName);
 
-                    return queueDeclareOk.ConsumerCount;
-                }
-            });
-
-            return result;
+                return Task.FromResult(queueDeclareOk.ConsumerCount);
+            }
         }
 
         public async Task<bool> VirtualHostDeclareAsync(string virtualHostName)

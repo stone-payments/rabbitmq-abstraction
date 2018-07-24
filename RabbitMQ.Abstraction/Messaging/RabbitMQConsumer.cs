@@ -18,23 +18,18 @@ namespace RabbitMQ.Abstraction.Messaging
             _messageProcessingWorker = messageProcessingWorker;
         }
 
-        protected override async Task<IQueueConsumerWorker> CreateNewConsumerWorkerAsync()
+        protected override Task<IQueueConsumerWorker> CreateNewConsumerWorkerAsync()
         {
-            var result = await Task.Factory.StartNew(() =>
-            {
-                var newConsumerWorker = new RabbitMQConsumerWorker<T>(
-                    connection: PersistentConnection.connection,
-                    queueName: QueueName,
-                    messageProcessingWorker: _messageProcessingWorker,
-                    messageRejectionHandler: MessageRejectionHandler,
-                    serializer: Serializer,
-                    scaleCallbackFunc: TryScaleDown
-                );
+            var newConsumerWorker = new RabbitMQConsumerWorker<T>(
+                connection: PersistentConnection.connection,
+                queueName: QueueName,
+                messageProcessingWorker: _messageProcessingWorker,
+                messageRejectionHandler: MessageRejectionHandler,
+                serializer: Serializer,
+                scaleCallbackFunc: TryScaleDown
+            );
 
-                return newConsumerWorker;
-            });
-
-            return result;
+            return Task.FromResult((IQueueConsumerWorker)newConsumerWorker);
         }
     }
 }

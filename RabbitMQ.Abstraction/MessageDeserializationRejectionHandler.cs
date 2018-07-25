@@ -29,10 +29,10 @@ namespace RabbitMQ.Abstraction
             _serializer = serializer ?? new JsonSerializer();
         }
 
-        public MessageDeserializationRejectionHandler(RabbitMQConnectionPool connectionPool, string exchangeName = "",
+        public MessageDeserializationRejectionHandler(IRabbitMQPersistentConnection persistentConnection, string exchangeName = "",
             string rejectionRoutingKey = "RejectedMessages", ISerializer serializer = null)
         {
-            _rabbitMQClient = new RabbitMQClient(connectionPool, serializer);
+            _rabbitMQClient = new RabbitMQClient(persistentConnection, serializer);
             _exchangeName = exchangeName;
             _rejectionRoutingKey = exchangeName == "" ? DefaultRejectionQueueName : rejectionRoutingKey;
             _serializer = serializer ?? new JsonSerializer();

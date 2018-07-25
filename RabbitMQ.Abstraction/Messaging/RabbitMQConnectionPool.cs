@@ -34,12 +34,12 @@ namespace RabbitMQ.Abstraction.Messaging
 
             IConnection elegibleConnection;
 
-            lock(_connections)
+            lock (_connections)
             {
                 elegibleConnection = _connections.FirstOrDefault(c => c.IsOpen);
             }
 
-            if(elegibleConnection == null)
+            if (elegibleConnection == null)
             {
                 elegibleConnection = await GetConnectionAsync().ConfigureAwait(false);
             }
@@ -73,13 +73,13 @@ namespace RabbitMQ.Abstraction.Messaging
 
                 ensuredConnection = await GetConnectionAsync().ConfigureAwait(false);
             }
-            
+
             return ensuredConnection;
         }
 
         private void EnsurePoolSize()
         {
-            lock(_connections)
+            lock (_connections)
             {
                 _connections.RemoveAll(c => c.IsOpen == false);
 
@@ -94,7 +94,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public void Dispose()
         {
-            lock(_connections)
+            lock (_connections)
             {
                 foreach (var connection in _connections.Where(c => c.IsOpen))
                 {

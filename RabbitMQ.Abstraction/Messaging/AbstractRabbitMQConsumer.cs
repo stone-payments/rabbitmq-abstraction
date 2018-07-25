@@ -13,7 +13,7 @@ namespace RabbitMQ.Abstraction.Messaging
 {
     public abstract class AbstractRabbitMQConsumer : IQueueConsumer
     {
-        protected readonly RabbitMQConnectionPool ConnectionPool;
+        protected readonly IRabbitMQPersistentConnection PersistentConnection;
 
         protected readonly string QueueName;
 
@@ -32,16 +32,16 @@ namespace RabbitMQ.Abstraction.Messaging
 
         private readonly object _scalingLock = new object();
 
-        protected AbstractRabbitMQConsumer(RabbitMQConnectionPool connectionPool, string queueName, 
+        protected AbstractRabbitMQConsumer(IRabbitMQPersistentConnection persistentConnection, string queueName, 
             ISerializer serializer = null, ILogger logger = null, 
             IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
         {
-            ConnectionPool = connectionPool;
+            PersistentConnection = persistentConnection;
             QueueName = queueName;
             Serializer = serializer ?? new JsonSerializer();
             _logger = logger;
             _consumerCountManager = consumerCountManager ?? new ConsumerCountManager();
-            MessageRejectionHandler = messageRejectionHandler ?? new MessageDeserializationRejectionHandler(connectionPool);
+            MessageRejectionHandler = messageRejectionHandler ?? new MessageDeserializationRejectionHandler(persistentConnection);
 
             _consumerWorkersCount = 0;
             _cancellationTokenSource = new CancellationTokenSource();
@@ -65,19 +65,19 @@ namespace RabbitMQ.Abstraction.Messaging
             }
         }
 
-        public async Task<uint> GetMessageCountAsync()
+        public Task<uint> GetMessageCountAsync()
         {
-            using (var model = (await ConnectionPool.GetConnectionAsync()).CreateModel())
+            using (var model = PersistentConnection.CreateModel())
             {
-                return GetMessageCount(model);
+                return Task.FromResult(GetMessageCount(model));
             }
         }
 
-        public async Task<uint> GetConsumerCountAsync()
+        public Task<uint> GetConsumerCountAsync()
         {
-            using (var model = (await ConnectionPool.GetConnectionAsync()).CreateModel())
+            using (var model = PersistentConnection.CreateModel())
             {
-                return GetConsumerCount(model);
+                return Task.FromResult(GetConsumerCount(model));
             }
         }
 
@@ -168,10 +168,10 @@ namespace RabbitMQ.Abstraction.Messaging
             Stop().Wait();
         }
 
-        private async Task<QueueInfo> CreateQueueInfoAsync()
+        private Task<QueueInfo> CreateQueueInfoAsync()
         {
             QueueInfo queueInfo;
-            using (var model = (await ConnectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
+            using (var model = PersistentConnection.CreateModel())
             {
                 var queueDeclareOk = model.QueueDeclarePassive(QueueName);
 
@@ -182,7 +182,7 @@ namespace RabbitMQ.Abstraction.Messaging
                     MessageCount = queueDeclareOk.MessageCount
                 };
             }
-            return queueInfo;
+            return Task.FromResult(queueInfo);
         }
 
         private uint GetMessageCount(IModel model)

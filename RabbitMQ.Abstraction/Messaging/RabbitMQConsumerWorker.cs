@@ -29,7 +29,7 @@ namespace RabbitMQ.Abstraction.Messaging
             ISerializer serializer, Func<bool> scaleCallbackFunc)
         {
             _model = connection.CreateModel();
-            _model.BasicQos(0, 1, false);
+            _model.BasicQos(0, 1000, false);
             _subscription = new Subscription(_model, queueName, false);
             _messageProcessingWorker = messageProcessingWorker;
             _messageRejectionHandler = messageRejectionHandler;

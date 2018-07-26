@@ -5,9 +5,9 @@ namespace RabbitMQ.Abstraction
 {
     public class ConsumerCountManager : IConsumerCountManager
     {
-        private readonly uint _minConcurrentConsumers;
+        public uint MinConcurrentConsumers { get; }
 
-        private readonly uint _maxConcurrentConsumers;
+        public uint MaxConcurrentConsumers { get; }
 
         public TimeSpan AutoscaleFrequency { get; set; }
 
@@ -16,8 +16,8 @@ namespace RabbitMQ.Abstraction
         public ConsumerCountManager(uint minConcurrentConsumers = 1, uint maxConcurrentConsumers = 10, 
             uint messagesPerConsumerWorkerRatio = 10, double autoscaleFrequencyMilliseconds = 10000)
         {
-            _minConcurrentConsumers = minConcurrentConsumers;
-            _maxConcurrentConsumers = maxConcurrentConsumers;
+            MinConcurrentConsumers = minConcurrentConsumers;
+            MaxConcurrentConsumers = maxConcurrentConsumers;
             _messagesPerConsumerWorkerRatio = messagesPerConsumerWorkerRatio;
 
             AutoscaleFrequency = TimeSpan.FromMilliseconds(autoscaleFrequencyMilliseconds);
@@ -29,13 +29,13 @@ namespace RabbitMQ.Abstraction
 
             int idealConsumerCount;
 
-            if (consumersByRatio < _minConcurrentConsumers)
+            if (consumersByRatio < MinConcurrentConsumers)
             {
-                idealConsumerCount = Convert.ToInt32(_minConcurrentConsumers);
+                idealConsumerCount = Convert.ToInt32(MinConcurrentConsumers);
             }
-            else if (consumersByRatio > _maxConcurrentConsumers)
+            else if (consumersByRatio > MaxConcurrentConsumers)
             {
-                idealConsumerCount = Convert.ToInt32(_maxConcurrentConsumers);
+                idealConsumerCount = Convert.ToInt32(MaxConcurrentConsumers);
             }
             else
             {

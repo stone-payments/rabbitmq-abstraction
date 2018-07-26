@@ -6,6 +6,10 @@ namespace RabbitMQ.Abstraction.Interfaces
     {
         TimeSpan AutoscaleFrequency { get; set; }
 
+        uint MinConcurrentConsumers { get; }
+
+        uint MaxConcurrentConsumers { get; }
+
         int GetScalingAmount(QueueInfo queueInfo, int consumersRunningCount);
     }
 }

@@ -35,7 +35,7 @@ namespace RabbitMQ.Abstraction.Messaging.Interfaces
             ShovelConfiguration shovelConfiguration);
 
         IQueueConsumer CreateConsumer<T>(string queueName, IConsumerCountManager consumerCountManager,
-            IMessageProcessingWorker<T> messageProcessingWorker, IMessageRejectionHandler messageRejectionHandler)
+            IMessageProcessingWorker<T> messageProcessingWorker, IMessageRejectionHandler messageRejectionHandler, ushort prefetchCount = 1)
             where T : class;
 
         IQueueConsumer CreateBatchConsumer<T>(string queueName, IConsumerCountManager consumerCountManager,

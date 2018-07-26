@@ -39,25 +39,28 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             _batchSize = batchSize;
         }
 
-        public AdvancedAsyncProcessingWorker(IQueueClient queueClient, string queueName, 
-            Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout, 
-            ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue, 
-            int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, 
-            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null)
-            : base(queueClient, queueName, exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds, 
-            consumerCountManager, messageRejectionHandler, logger)
+        public AdvancedAsyncProcessingWorker(IQueueClient queueClient, string queueName,
+            Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout,
+            ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
+            int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0,
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null,
+            ILogger logger = null, ushort prefetchCount = 1)
+            : base(queueClient, queueName, exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds,
+                consumerCountManager, messageRejectionHandler, logger, prefetchCount)
         {
             _callbackFunc = callbackFunc;
             _processingTimeout = processingTimeout;
         }
 
         public AdvancedAsyncProcessingWorker(IQueueClient queueClient, string queueName,
-            Func<IEnumerable<T>, CancellationToken, Task> batchCallbackFunc, ushort batchSize, TimeSpan processingTimeout, 
+            Func<IEnumerable<T>, CancellationToken, Task> batchCallbackFunc, ushort batchSize,
+            TimeSpan processingTimeout,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0,
-            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null)
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null,
+            ILogger logger = null, ushort prefetchCount = 1)
             : base(queueClient, queueName, exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds,
-                consumerCountManager, messageRejectionHandler, logger)
+                consumerCountManager, messageRejectionHandler, logger, prefetchCount)
         {
             _batchCallbackFunc = batchCallbackFunc;
             _processingTimeout = processingTimeout;
@@ -90,15 +93,17 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             return instance;
         }
 
-        public static async Task<AdvancedAsyncProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient, 
-            string queueName, Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout, CancellationToken cancellationToken, 
+        public static async Task<AdvancedAsyncProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient,
+            string queueName, Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout,
+            CancellationToken cancellationToken,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
-            int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, 
-            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null)
+            int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0,
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null,
+            ILogger logger = null, ushort prefetchCount = 1)
         {
-            var instance = new AdvancedAsyncProcessingWorker<T>(queueClient, queueName, callbackFunc, 
-                processingTimeout, exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds, 
-                consumerCountManager, messageRejectionHandler, logger);
+            var instance = new AdvancedAsyncProcessingWorker<T>(queueClient, queueName, callbackFunc,
+                processingTimeout, exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds,
+                consumerCountManager, messageRejectionHandler, logger, prefetchCount);
 
             await instance.StartAsync(cancellationToken).ConfigureAwait(false);
 
@@ -106,14 +111,18 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
         }
 
         public static async Task<AdvancedAsyncProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient,
-            string queueName, Func<IEnumerable<T>, CancellationToken, Task> batchCallbackFunc, ushort batchSize, TimeSpan processingTimeout,
-            CancellationToken cancellationToken, ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
+            string queueName, Func<IEnumerable<T>, CancellationToken, Task> batchCallbackFunc, ushort batchSize,
+            TimeSpan processingTimeout,
+            CancellationToken cancellationToken,
+            ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0,
-            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null)
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null,
+            ILogger logger = null, ushort prefetchCount = 1)
         {
-            var instance = new AdvancedAsyncProcessingWorker<T>(queueClient, queueName, batchCallbackFunc, batchSize, processingTimeout, 
+            var instance = new AdvancedAsyncProcessingWorker<T>(queueClient, queueName, batchCallbackFunc, batchSize,
+                processingTimeout,
                 exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds,
-                consumerCountManager, messageRejectionHandler, logger);
+                consumerCountManager, messageRejectionHandler, logger, prefetchCount);
 
             await instance.StartAsync(cancellationToken).ConfigureAwait(false);
 

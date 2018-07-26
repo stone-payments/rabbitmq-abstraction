@@ -21,7 +21,7 @@ namespace RabbitMQ.Abstraction.Messaging
         protected override Task<IQueueConsumerWorker> CreateNewConsumerWorkerAsync()
         {
             var newConsumerWorker = new RabbitMQConsumerWorker<T>(
-                connection: ConnectionPool.CreateConnection(ConsumerCountManager.MaxConcurrentConsumers),
+                connection: ConsumerConnection,
                 queueName: QueueName,
                 messageProcessingWorker: _messageProcessingWorker,
                 messageRejectionHandler: MessageRejectionHandler,

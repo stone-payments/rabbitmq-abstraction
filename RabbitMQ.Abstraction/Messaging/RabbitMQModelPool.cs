@@ -1,15 +1,16 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using RabbitMQ.Abstraction.Messaging.Interfaces;
 using RabbitMQ.Client;
 
 namespace RabbitMQ.Abstraction.Messaging
 {
     public class RabbitMQModelPool : IDisposable
     {
-        private ConcurrentQueue<IModel> _models;
+        private ConcurrentQueue<IRabbitMQModel> _models;
+        private object _modelsLock = new object();
 
         private readonly uint _poolSize;
 
@@ -19,20 +20,48 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public RabbitMQModelPool(Func<IModel> createModelFunc, uint poolSize = 1)
         {
-            _poolSize = poolSize == 0 ? 1 : poolSize;
-            _createModelFunc = createModelFunc;
-            _inUseModelCount = 0;
+            try
+            {
+                _poolSize = poolSize == 0 ? 1 : poolSize;
+                _createModelFunc = createModelFunc;
+                _inUseModelCount = 0;
 
-            _models = new ConcurrentQueue<IModel>();
+                _models = new ConcurrentQueue<IRabbitMQModel>();
 
-            EnsurePoolSize();
+                EnsurePoolSize();
+            }
+            catch (Exception e)
+            {
+                throw;
+            }
         }
 
         private void EnsurePoolSize()
         {
-            lock (_models)
+            lock (_modelsLock)
             {
-                _models = new ConcurrentQueue<IModel>(_models.Where(m => m.IsOpen).Take((int)_poolSize));
+                var openModels = new ConcurrentQueue<IRabbitMQModel>();
+
+                foreach (var model in _models)
+                {
+                    if (model.IsOpen)
+                    {
+                        if (openModels.Count + _inUseModelCount < _poolSize)
+                        {
+                            openModels.Enqueue(model);
+                        }
+                        else
+                        {
+                            model.End();
+                        }
+                    }
+                    else
+                    {
+                        model.Dispose();
+                    }
+                }
+
+                _models = openModels;
 
                 var newModelsNeeded = _poolSize - (_models.Count + _inUseModelCount);
 
@@ -40,8 +69,12 @@ namespace RabbitMQ.Abstraction.Messaging
                 {
                     _models.Enqueue(new RabbitMQModel(_createModelFunc(), model =>
                     {
+                        lock (_modelsLock)
+                        {
+                            _models.Enqueue(model);
+                        }
+
                         Interlocked.Decrement(ref _inUseModelCount);
-                        _models.Enqueue(model);
                     }));
                 }
             }
@@ -50,24 +83,31 @@ namespace RabbitMQ.Abstraction.Messaging
         public async Task<IModel> GetModelAsync()
         {
             bool success;
-            IModel elegibleModel;
+            IRabbitMQModel elegibleModel;
 
             do
             {
-                success = _models.TryDequeue(out elegibleModel);
+                lock (_modelsLock)
+                {
+                    success = _models.TryDequeue(out elegibleModel);
+                }
 
-                if (!success)
+                if (success)
                 {
                     if (elegibleModel.IsClosed)
                     {
-                        _models.Enqueue(elegibleModel);
-                    }
+                        elegibleModel.Dispose();
 
+                        success = false;
+                    }
+                }
+                else
+                {
                     EnsurePoolSize();
 
                     await Task.Delay(TimeSpan.FromMilliseconds(50));
                 }
-            } while (!success || elegibleModel.IsClosed);
+            } while (!success);
 
             Interlocked.Increment(ref _inUseModelCount);
 
@@ -76,11 +116,11 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public void Dispose()
         {
-            lock (_models)
+            lock (_modelsLock)
             {
-                foreach (var model in _models.Where(c => c.IsOpen))
+                foreach (var model in _models)
                 {
-                    model.Close();
+                    model.End();
                 }
 
                 _models = null;

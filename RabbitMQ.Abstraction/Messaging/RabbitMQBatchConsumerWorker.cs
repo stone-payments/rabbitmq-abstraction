@@ -21,8 +21,6 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public TimeSpan CheckAliveFrequency { get; set; }
 
-        public bool ModelIsClosed => _model.IsClosed;
-
         public RabbitMQBatchConsumerWorker(IConnection connection, string queueName,
             IBatchProcessingWorker<T> batchProcessingWorker, IMessageRejectionHandler messageRejectionHandler,
             ISerializer serializer, Func<bool> scaleCallbackFunc)

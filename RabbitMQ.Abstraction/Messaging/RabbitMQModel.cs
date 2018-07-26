@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using RabbitMQ.Abstraction.Messaging.Interfaces;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
 namespace RabbitMQ.Abstraction.Messaging
 {
-    public class RabbitMQModel : IModel
+    public class RabbitMQModel : IRabbitMQModel
     {
         private readonly IModel _model;
 
@@ -17,9 +18,21 @@ namespace RabbitMQ.Abstraction.Messaging
             _requeueModelAction = requeueModelAction;
         }
 
+        public void End()
+        {
+            _model.Dispose();
+        }
+
         public void Dispose()
         {
-            _requeueModelAction(this);
+            if (_model.IsOpen)
+            {
+                _requeueModelAction(this);
+            }
+            else
+            {
+                _model.Dispose();
+            }
         }
 
         public void Abort()

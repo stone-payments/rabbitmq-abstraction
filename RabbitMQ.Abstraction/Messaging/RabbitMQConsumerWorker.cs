@@ -26,10 +26,10 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public RabbitMQConsumerWorker(IConnection connection, string queueName, 
             IMessageProcessingWorker<T> messageProcessingWorker, IMessageRejectionHandler messageRejectionHandler, 
-            ISerializer serializer, Func<bool> scaleCallbackFunc)
+            ISerializer serializer, Func<bool> scaleCallbackFunc, ushort prefetchCount = 1)
         {
             _model = connection.CreateModel();
-            _model.BasicQos(0, 1, false);
+            _model.BasicQos(0, prefetchCount, false);
             _subscription = new Subscription(_model, queueName, false);
             _messageProcessingWorker = messageProcessingWorker;
             _messageRejectionHandler = messageRejectionHandler;

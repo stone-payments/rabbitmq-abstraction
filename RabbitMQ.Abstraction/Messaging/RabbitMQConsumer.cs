@@ -12,24 +12,25 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public RabbitMQConsumer(RabbitMQConnectionPool connectionPool, string queueName,
             IMessageProcessingWorker<T> messageProcessingWorker, ISerializer serializer = null, ILogger logger = null,
-            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
-            : base(connectionPool, queueName, serializer, logger, consumerCountManager, messageRejectionHandler)
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ushort prefetchCount = 1)
+            : base(connectionPool, queueName, serializer, logger, consumerCountManager, messageRejectionHandler, prefetchCount)
         {
             _messageProcessingWorker = messageProcessingWorker;
         }
 
-        protected override async Task<IQueueConsumerWorker> CreateNewConsumerWorkerAsync()
+        protected override Task<IQueueConsumerWorker> CreateNewConsumerWorkerAsync()
         {
             var newConsumerWorker = new RabbitMQConsumerWorker<T>(
-                connection: await ConnectionPool.GetConnectionAsync().ConfigureAwait(false),
+                connection: ConnectionPool.CreateConnection(ConsumerCountManager.MaxConcurrentConsumers),
                 queueName: QueueName,
                 messageProcessingWorker: _messageProcessingWorker,
                 messageRejectionHandler: MessageRejectionHandler,
                 serializer: Serializer,
-                scaleCallbackFunc: TryScaleDown
+                scaleCallbackFunc: TryScaleDown,
+                prefetchCount: PrefetchCount
             );
 
-            return newConsumerWorker;
+            return Task.FromResult((IQueueConsumerWorker)newConsumerWorker);
         }
     }
 }

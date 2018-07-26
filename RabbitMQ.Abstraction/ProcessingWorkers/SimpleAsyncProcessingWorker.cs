@@ -35,19 +35,22 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             _batchSize = batchSize;
         }
 
-        public SimpleAsyncProcessingWorker(IQueueClient queueClient, string queueName, 
-            Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout, 
-            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null)
-            : base(queueClient, queueName, consumerCountManager, messageRejectionHandler, logger)
+        public SimpleAsyncProcessingWorker(IQueueClient queueClient, string queueName,
+            Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout,
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null,
+            ILogger logger = null, ushort prefetchCount = 1)
+            : base(queueClient, queueName, consumerCountManager, messageRejectionHandler, logger, prefetchCount)
         {
             _callbackFunc = callbackFunc;
             _processingTimeout = processingTimeout;
         }
 
         public SimpleAsyncProcessingWorker(IQueueClient queueClient, string queueName,
-            Func<IEnumerable<T>, CancellationToken, Task> batchCallbackFunc, ushort batchSize, TimeSpan processingTimeout,
-            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null)
-            : base(queueClient, queueName, consumerCountManager, messageRejectionHandler, logger)
+            Func<IEnumerable<T>, CancellationToken, Task> batchCallbackFunc, ushort batchSize,
+            TimeSpan processingTimeout,
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null,
+            ILogger logger = null, ushort prefetchCount = 1)
+            : base(queueClient, queueName, consumerCountManager, messageRejectionHandler, logger, prefetchCount)
         {
             _batchCallbackFunc = batchCallbackFunc;
             _processingTimeout = processingTimeout;
@@ -75,24 +78,31 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             return instance;
         }
 
-        public static async Task<SimpleAsyncProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient, string queueName, 
-            Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout, CancellationToken cancellationToken, 
-            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null)
+        public static async Task<SimpleAsyncProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient,
+            string queueName,
+            Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout,
+            CancellationToken cancellationToken,
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null,
+            ILogger logger = null, ushort prefetchCount = 1)
         {
             var instance = new SimpleAsyncProcessingWorker<T>(queueClient, queueName, callbackFunc,
-                processingTimeout, consumerCountManager, messageRejectionHandler, logger);
+                processingTimeout, consumerCountManager, messageRejectionHandler, logger, prefetchCount);
 
             await instance.StartAsync(cancellationToken).ConfigureAwait(false);
 
             return instance;
         }
 
-        public static async Task<SimpleAsyncProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient, string queueName, 
-            Func<IEnumerable<T>, CancellationToken, Task> batchCallbackFunc, ushort batchSize, TimeSpan processingTimeout, CancellationToken cancellationToken, 
-            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null)
+        public static async Task<SimpleAsyncProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient,
+            string queueName,
+            Func<IEnumerable<T>, CancellationToken, Task> batchCallbackFunc, ushort batchSize,
+            TimeSpan processingTimeout, CancellationToken cancellationToken,
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null,
+            ILogger logger = null, ushort prefetchCount = 1)
         {
-            var instance = new SimpleAsyncProcessingWorker<T>(queueClient, queueName, batchCallbackFunc, batchSize, processingTimeout, 
-                consumerCountManager, messageRejectionHandler, logger);
+            var instance = new SimpleAsyncProcessingWorker<T>(queueClient, queueName, batchCallbackFunc, batchSize,
+                processingTimeout,
+                consumerCountManager, messageRejectionHandler, logger, prefetchCount);
 
             await instance.StartAsync(cancellationToken).ConfigureAwait(false);
 

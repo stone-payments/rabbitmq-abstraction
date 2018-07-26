@@ -1,7 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading.Tasks;
+using RabbitMQ.Abstraction.Messaging.Interfaces;
 using RabbitMQ.Client;
 
 namespace RabbitMQ.Abstraction.Messaging
@@ -10,84 +11,56 @@ namespace RabbitMQ.Abstraction.Messaging
     {
         public readonly ConnectionFactory ConnectionFactory;
 
-        private readonly List<IConnection> _connections;
+        private ConcurrentQueue<IRabbitMQConnection> _connections;
 
         private readonly uint _poolSize;
 
-        public RabbitMQConnectionPool(ConnectionFactory connectionFactory)
+        private readonly uint _modelPoolSize;
+
+        public RabbitMQConnectionPool(ConnectionFactory connectionFactory, uint poolSize = 1, uint modelPoolSize = 1)
         {
             ConnectionFactory = connectionFactory;
 
-            _connections = new List<IConnection>();
+            _connections = new ConcurrentQueue<IRabbitMQConnection>();
 
-            if (_poolSize == 0)
-            {
-                _poolSize = 1;
-            }
+            _poolSize = poolSize == 0 ? 1 : poolSize;
+            _modelPoolSize = modelPoolSize == 0 ? 1 : modelPoolSize;
 
             EnsurePoolSize();
         }
 
-        public async Task<IConnection> GetConnectionAsync()
+        public async Task<IRabbitMQConnection> GetConnectionAsync()
         {
-            EnsurePoolSize();
+            IRabbitMQConnection elegibleConnection;
 
-            IConnection elegibleConnection;
-
-            lock(_connections)
+            while(!_connections.TryDequeue(out elegibleConnection))
             {
-                elegibleConnection = _connections.FirstOrDefault(c => c.IsOpen);
+                EnsurePoolSize();
+
+                await Task.Delay(TimeSpan.FromMilliseconds(50));
             }
 
-            if(elegibleConnection == null)
-            {
-                elegibleConnection = await GetConnectionAsync().ConfigureAwait(false);
-            }
+            _connections.Enqueue(elegibleConnection);
 
-            var connection = await EnsureConnectionOpenAsync(elegibleConnection).ConfigureAwait(false);
-
-            return connection;
+            return elegibleConnection;
         }
 
-        private async Task<IConnection> EnsureConnectionOpenAsync(IConnection connection)
+        public IRabbitMQConnection CreateConnection(uint modelPoolSize = 1)
         {
-            IConnection ensuredConnection;
-
-            try
-            {
-                var model = connection.CreateModel();
-
-                model.Dispose();
-
-                ensuredConnection = connection;
-            }
-            catch (Exception)
-            {
-                //TODO: Review this lock
-                lock (_connections)
-                {
-                    _connections.Remove(connection);
-                }
-
-                await Task.Delay(TimeSpan.FromMilliseconds(100)).ConfigureAwait(false);
-
-                ensuredConnection = await GetConnectionAsync().ConfigureAwait(false);
-            }
-            
-            return ensuredConnection;
+            return new RabbitMQConnection(ConnectionFactory.CreateConnection(), modelPoolSize);
         }
 
         private void EnsurePoolSize()
         {
             lock(_connections)
             {
-                _connections.RemoveAll(c => c.IsOpen == false);
+                _connections = new ConcurrentQueue<IRabbitMQConnection>(_connections.Where(c => c.IsOpen));
 
-                var newConnectionsNeeded = Convert.ToInt32(_poolSize - _connections.Count);
+                var newConnectionsNeeded = _poolSize - _connections.Count;
 
                 for (var i = 0; i < newConnectionsNeeded; i++)
                 {
-                    _connections.Add(ConnectionFactory.CreateConnection());
+                    _connections.Enqueue(new RabbitMQConnection(ConnectionFactory.CreateConnection(), _modelPoolSize));
                 }
             }
         }
@@ -101,7 +74,7 @@ namespace RabbitMQ.Abstraction.Messaging
                     connection.Close();
                 }
 
-                _connections.RemoveAll(c => c.IsOpen == false);
+                _connections = null;
             }
         }
     }

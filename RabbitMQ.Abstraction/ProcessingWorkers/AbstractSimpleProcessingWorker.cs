@@ -22,6 +22,8 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
 
         protected readonly ILogger Logger;
 
+        protected readonly ushort PrefetchCount;
+
         protected AbstractSimpleProcessingWorker(IQueueConsumer consumer, ILogger logger = null)
         {
             Consumer = consumer;
@@ -29,15 +31,19 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
         }
 
         protected AbstractSimpleProcessingWorker(IQueueClient queueClient, string queueName,
-            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null)
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null,
+            ILogger logger = null, ushort prefetchCount = 1)
         {
             QueueClient = queueClient;
             QueueName = queueName;
 
             ConsumerCountManager = consumerCountManager ?? new ConsumerCountManager();
-            MessageRejectionHandler = messageRejectionHandler ?? new MessageDeserializationRejectionHandler(QueueClient);
+            MessageRejectionHandler =
+                messageRejectionHandler ?? new MessageDeserializationRejectionHandler(QueueClient);
 
             Logger = logger;
+
+            PrefetchCount = prefetchCount;
         }
 
         protected Task<Task> StartAsync(CancellationToken cancellationToken, bool batched)
@@ -52,7 +58,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
                 else
                 {
                     Consumer = QueueClient.CreateConsumer(QueueName, ConsumerCountManager, this,
-                        MessageRejectionHandler);
+                        MessageRejectionHandler, PrefetchCount);
                 }
             }
 

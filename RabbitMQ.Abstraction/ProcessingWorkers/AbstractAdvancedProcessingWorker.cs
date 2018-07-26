@@ -31,8 +31,8 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
         protected AbstractAdvancedProcessingWorker(IQueueClient queueClient, string queueName, 
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue, 
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, 
-            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null)
-            : base(queueClient, queueName, consumerCountManager, messageRejectionHandler, logger)
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null, ushort prefetchCount = 1)
+            : base(queueClient, queueName, consumerCountManager, messageRejectionHandler, logger, prefetchCount)
         {
             InvokeRetryCount = invokeRetryCount;
             InvokeRetryWaitMilliseconds = invokeRetryWaitMilliseconds;

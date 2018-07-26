@@ -25,23 +25,29 @@ namespace RabbitMQ.Abstraction.Messaging
 
         private readonly CancellationTokenSource _cancellationTokenSource;
 
-        private readonly IConsumerCountManager _consumerCountManager;
+        protected readonly IConsumerCountManager ConsumerCountManager;
+
+        protected readonly ushort PrefetchCount;
 
         private int _scalingAmount;
         private int _consumerWorkersCount;
 
         private readonly object _scalingLock = new object();
 
-        protected AbstractRabbitMQConsumer(RabbitMQConnectionPool connectionPool, string queueName, 
-            ISerializer serializer = null, ILogger logger = null, 
-            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null)
+        protected AbstractRabbitMQConsumer(RabbitMQConnectionPool connectionPool, string queueName,
+            ISerializer serializer = null, ILogger logger = null,
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null,
+            ushort prefetchCount = 1)
         {
             ConnectionPool = connectionPool;
             QueueName = queueName;
             Serializer = serializer ?? new JsonSerializer();
             _logger = logger;
-            _consumerCountManager = consumerCountManager ?? new ConsumerCountManager();
-            MessageRejectionHandler = messageRejectionHandler ?? new MessageDeserializationRejectionHandler(connectionPool);
+            ConsumerCountManager = consumerCountManager ?? new ConsumerCountManager();
+            MessageRejectionHandler =
+                messageRejectionHandler ?? new MessageDeserializationRejectionHandler(connectionPool);
+
+            PrefetchCount = prefetchCount;
 
             _consumerWorkersCount = 0;
             _cancellationTokenSource = new CancellationTokenSource();
@@ -67,7 +73,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public async Task<uint> GetMessageCountAsync()
         {
-            using (var model = (await ConnectionPool.GetConnectionAsync()).CreateModel())
+            using (var model = await (await ConnectionPool.GetConnectionAsync()).GetModelAsync().ConfigureAwait(false))
             {
                 return GetMessageCount(model);
             }
@@ -75,7 +81,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public async Task<uint> GetConsumerCountAsync()
         {
-            using (var model = (await ConnectionPool.GetConnectionAsync()).CreateModel())
+            using (var model = await (await ConnectionPool.GetConnectionAsync()).GetModelAsync().ConfigureAwait(false))
             {
                 return GetConsumerCount(model);
             }
@@ -93,7 +99,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
                         lock (_scalingLock)
                         {
-                            _scalingAmount = _consumerCountManager.GetScalingAmount(queueInfo, _consumerWorkersCount);
+                            _scalingAmount = ConsumerCountManager.GetScalingAmount(queueInfo, _consumerWorkersCount);
                             int counter = _scalingAmount;
                             for (var i = 1; i <= counter; i++)
                             {
@@ -125,7 +131,7 @@ namespace RabbitMQ.Abstraction.Messaging
                             }
                         }
 
-                        await Task.Delay(_consumerCountManager.AutoscaleFrequency, cancellationToken).ConfigureAwait(false);
+                        await Task.Delay(ConsumerCountManager.AutoscaleFrequency, cancellationToken).ConfigureAwait(false);
                     }
                     catch (Exception e)
                     {
@@ -171,7 +177,7 @@ namespace RabbitMQ.Abstraction.Messaging
         private async Task<QueueInfo> CreateQueueInfoAsync()
         {
             QueueInfo queueInfo;
-            using (var model = (await ConnectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
+            using (var model = await (await ConnectionPool.GetConnectionAsync().ConfigureAwait(false)).GetModelAsync().ConfigureAwait(false))
             {
                 var queueDeclareOk = model.QueueDeclarePassive(QueueName);
 

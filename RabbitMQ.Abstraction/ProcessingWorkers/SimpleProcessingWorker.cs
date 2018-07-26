@@ -29,16 +29,19 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             _batchSize = batchSize;
         }
 
-        public SimpleProcessingWorker(IQueueClient queueClient, string queueName, Action<T> callbackAction, 
-            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null) 
-            : base(queueClient, queueName, consumerCountManager, messageRejectionHandler, logger)
+        public SimpleProcessingWorker(IQueueClient queueClient, string queueName, Action<T> callbackAction,
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null,
+            ILogger logger = null, ushort prefetchCount = 1)
+            : base(queueClient, queueName, consumerCountManager, messageRejectionHandler, logger, prefetchCount)
         {
             _callbackAction = callbackAction;
         }
 
-        public SimpleProcessingWorker(IQueueClient queueClient, string queueName, Action<IEnumerable<T>> batchCallbackAction, 
-            ushort batchSize, IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null)
-            : base(queueClient, queueName, consumerCountManager, messageRejectionHandler, logger)
+        public SimpleProcessingWorker(IQueueClient queueClient, string queueName,
+            Action<IEnumerable<T>> batchCallbackAction,
+            ushort batchSize, IConsumerCountManager consumerCountManager = null,
+            IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null, ushort prefetchCount = 1)
+            : base(queueClient, queueName, consumerCountManager, messageRejectionHandler, logger, prefetchCount)
         {
             _batchCallbackAction = batchCallbackAction;
             _batchSize = batchSize;
@@ -64,24 +67,28 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             return instance;
         }
 
-        public static async Task<SimpleProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient, string queueName, 
-            Action<T> callbackAction, CancellationToken cancellationToken, IConsumerCountManager consumerCountManager = null, 
-            IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null)
+        public static async Task<SimpleProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient,
+            string queueName,
+            Action<T> callbackAction, CancellationToken cancellationToken,
+            IConsumerCountManager consumerCountManager = null,
+            IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null, ushort prefetchCount = 1)
         {
             var instance = new SimpleProcessingWorker<T>(queueClient, queueName, callbackAction,
-                consumerCountManager, messageRejectionHandler, logger);
+                consumerCountManager, messageRejectionHandler, logger, prefetchCount);
 
             await instance.StartAsync(cancellationToken).ConfigureAwait(false);
 
             return instance;
         }
 
-        public static async Task<SimpleProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient, string queueName, 
-            Action<IEnumerable<T>> batchCallbackAction, ushort batchSize, CancellationToken cancellationToken, 
-            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null)
+        public static async Task<SimpleProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient,
+            string queueName,
+            Action<IEnumerable<T>> batchCallbackAction, ushort batchSize, CancellationToken cancellationToken,
+            IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null,
+            ILogger logger = null, ushort prefetchCount = 1)
         {
             var instance = new SimpleProcessingWorker<T>(queueClient, queueName, batchCallbackAction, batchSize,
-                consumerCountManager, messageRejectionHandler, logger);
+                consumerCountManager, messageRejectionHandler, logger, prefetchCount);
 
             await instance.StartAsync(cancellationToken).ConfigureAwait(false);
 

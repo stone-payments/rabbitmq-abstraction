@@ -29,13 +29,15 @@ namespace RabbitMQ.Abstraction.Messaging
         private readonly Regex _connectionStringPattern =
             new Regex(@"^(?<user>.+):(?<password>.+)@(?<host>.+):(?<port>[0-9]{1,5})/(?<vhost>.+)$");
 
-        /// <summary>
-        ///
-        /// </summary>
-        /// <param name="connectionString">Format {user}:{password}@{host}:{port}/{virtualHost}</param>
-        /// <param name="serializer"></param>
-        /// <param name="logger"></param>
-        public RabbitMQClient(string connectionString, ISerializer serializer = null, ILogger logger = null)
+        ///  <summary>
+        /// 
+        ///  </summary>
+        ///  <param name="connectionString">Format {user}:{password}@{host}:{port}/{virtualHost}</param>
+        ///  <param name="serializer"></param>
+        ///  <param name="logger"></param>
+        /// <param name="connectionPoolSize"></param>
+        /// <param name="modelPoolSize"></param>
+        public RabbitMQClient(string connectionString, ISerializer serializer = null, ILogger logger = null, uint connectionPoolSize = 1, uint modelPoolSize = 1)
         {
             var match = _connectionStringPattern.Match(connectionString);
             if (!match.Success)
@@ -50,9 +52,10 @@ namespace RabbitMQ.Abstraction.Messaging
                 VirtualHost = match.Groups["vhost"].Value,
                 AutomaticRecoveryEnabled = true,
                 DispatchConsumersAsync = true,
+                RequestedHeartbeat = 5,
             };
 
-            _connectionPool = new RabbitMQConnectionPool(connectionFactory);
+            _connectionPool = new RabbitMQConnectionPool(connectionFactory, connectionPoolSize, modelPoolSize);
             _serializer = serializer ?? new JsonSerializer();
             _logger = logger;
 
@@ -60,7 +63,7 @@ namespace RabbitMQ.Abstraction.Messaging
         }
 
         public RabbitMQClient(string hostName, int port, string userName, string password, string virtualHost,
-            ISerializer serializer = null, ILogger logger = null)
+            ISerializer serializer = null, ILogger logger = null, uint connectionPoolSize = 1, uint modelPoolSize = 1)
         {
             var connectionFactory = new ConnectionFactory
             {
@@ -72,16 +75,16 @@ namespace RabbitMQ.Abstraction.Messaging
                 AutomaticRecoveryEnabled = true
             };
 
-            _connectionPool = new RabbitMQConnectionPool(connectionFactory);
+            _connectionPool = new RabbitMQConnectionPool(connectionFactory, connectionPoolSize, modelPoolSize);
             _serializer = serializer ?? new JsonSerializer();
             _logger = logger;
 
             _httpClient = GetHttpClient(userName, password, hostName, port);
         }
 
-        public RabbitMQClient(ConnectionFactory connectionFactory, ISerializer serializer = null, ILogger logger = null)
+        public RabbitMQClient(ConnectionFactory connectionFactory, ISerializer serializer = null, ILogger logger = null, uint connectionPoolSize = 1, uint modelPoolSize = 1)
         {
-            _connectionPool = new RabbitMQConnectionPool(connectionFactory);
+            _connectionPool = new RabbitMQConnectionPool(connectionFactory, connectionPoolSize, modelPoolSize);
             _serializer = serializer ?? new JsonSerializer();
             _logger = logger;
 
@@ -112,7 +115,7 @@ namespace RabbitMQ.Abstraction.Messaging
         public async Task PublishAsync<T>(string exchangeName, string routingKey, T content, byte? priority = null)
         {
             var serializedContent = _serializer.Serialize(content);
-            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
+            using (var model = await (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).GetModelAsync().ConfigureAwait(false))
             {
                 var props = model.CreateBasicProperties();
                 props.DeliveryMode = 2;
@@ -129,7 +132,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public async Task BatchPublishAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList, byte? priority = null)
         {
-            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
+            using (var model = await (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).GetModelAsync().ConfigureAwait(false))
             {
                 var props = model.CreateBasicProperties();
                 props.DeliveryMode = 2;
@@ -151,7 +154,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public async Task BatchPublishTransactionalAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList, byte? priority = null)
         {
-            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
+            using (var model = await (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).GetModelAsync().ConfigureAwait(false))
             {
                 try
                 {
@@ -190,7 +193,7 @@ namespace RabbitMQ.Abstraction.Messaging
         public async Task DelayedPublishAsync<T>(string exchangeName, string routingKey, T content, TimeSpan delay, byte? priority = null)
         {
             var serializedContent = _serializer.Serialize(content);
-            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
+            using (var model = await (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).GetModelAsync().ConfigureAwait(false))
             {
                 var props = model.CreateBasicProperties();
                 props.DeliveryMode = 2;
@@ -226,7 +229,7 @@ namespace RabbitMQ.Abstraction.Messaging
         public async Task QueueDeclareAsync(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false, 
             IDictionary<string, object> arguments = null)
         {
-            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
+            using (var model = await (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).GetModelAsync().ConfigureAwait(false))
             {
                 model.QueueDeclare(queueName, durable, exclusive, autoDelete, arguments);
             }
@@ -234,7 +237,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public async Task QueueDeclarePassiveAsync(string queueName)
         {
-            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
+            using (var model = await (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).GetModelAsync().ConfigureAwait(false))
             {
                 model.QueueDeclarePassive(queueName);
             }
@@ -242,7 +245,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public async Task<uint> QueueDeleteAsync(string queueName)
         {
-            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
+            using (var model = await (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).GetModelAsync().ConfigureAwait(false))
             {
                 return model.QueueDelete(queueName);
             }
@@ -250,7 +253,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public async Task QueueBindAsync(string queueName, string exchangeName, string routingKey)
         {
-            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
+            using (var model = await (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).GetModelAsync().ConfigureAwait(false))
             {
                 model.QueueBind(queueName, exchangeName, routingKey);
             }
@@ -258,7 +261,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public async Task ExchangeDeclareAsync(string exchangeName, bool passive = false)
         {
-            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
+            using (var model = await (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).GetModelAsync().ConfigureAwait(false))
             {
                 if (passive)
                 {
@@ -273,7 +276,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public async Task<bool> QueueExistsAsync(string queueName)
         {
-            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
+            using (var model = await (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).GetModelAsync().ConfigureAwait(false))
             {
                 try
                 {
@@ -299,7 +302,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public async Task<uint> QueuePurgeAsync(string queueName)
         {
-            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
+            using (var model = await (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).GetModelAsync().ConfigureAwait(false))
             {
                 var returnValue = model.QueuePurge(queueName);
                 return returnValue;
@@ -308,7 +311,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public async Task<uint> GetMessageCountAsync(string queueName)
         {
-            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
+            using (var model = await (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).GetModelAsync().ConfigureAwait(false))
             {
                 var queueDeclareOk = model.QueueDeclarePassive(queueName);
 
@@ -318,7 +321,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public async Task<uint> GetConsumerCountAsync(string queueName)
         {
-            using (var model = (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).CreateModel())
+            using (var model = await (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).GetModelAsync().ConfigureAwait(false))
             {
                 var queueDeclareOk = model.QueueDeclarePassive(queueName);
 
@@ -362,8 +365,9 @@ namespace RabbitMQ.Abstraction.Messaging
             return response.IsSuccessStatusCode;
         }
 
-        public IQueueConsumer CreateConsumer<T>(string queueName, IConsumerCountManager consumerCountManager, 
-            IMessageProcessingWorker<T> messageProcessingWorker, IMessageRejectionHandler messageRejectionHandler) 
+        public IQueueConsumer CreateConsumer<T>(string queueName, IConsumerCountManager consumerCountManager,
+            IMessageProcessingWorker<T> messageProcessingWorker, IMessageRejectionHandler messageRejectionHandler,
+            ushort prefetchCount = 1)
             where T : class
         {
             return new RabbitMQConsumer<T>(
@@ -373,7 +377,8 @@ namespace RabbitMQ.Abstraction.Messaging
                 logger: _logger,
                 messageProcessingWorker: messageProcessingWorker,
                 consumerCountManager: consumerCountManager,
-                messageRejectionHandler: messageRejectionHandler);
+                messageRejectionHandler: messageRejectionHandler,
+                prefetchCount: prefetchCount);
         }
 
         public IQueueConsumer CreateBatchConsumer<T>(string queueName, IConsumerCountManager consumerCountManager,

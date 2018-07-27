@@ -50,9 +50,8 @@ namespace RabbitMQ.Abstraction.Messaging
                 UserName = match.Groups["user"].Value,
                 Password = match.Groups["password"].Value,
                 VirtualHost = match.Groups["vhost"].Value,
-                AutomaticRecoveryEnabled = true,
-                DispatchConsumersAsync = true,
-                RequestedHeartbeat = 5,
+                AutomaticRecoveryEnabled = false,
+                RequestedHeartbeat = 30,
             };
 
             _connectionPool = new RabbitMQConnectionPool(connectionFactory, connectionPoolSize, modelPoolSize);
@@ -72,7 +71,8 @@ namespace RabbitMQ.Abstraction.Messaging
                 UserName = userName,
                 Password = password,
                 VirtualHost = virtualHost,
-                AutomaticRecoveryEnabled = true
+                AutomaticRecoveryEnabled = false,
+                RequestedHeartbeat = 30,
             };
 
             _connectionPool = new RabbitMQConnectionPool(connectionFactory, connectionPoolSize, modelPoolSize);

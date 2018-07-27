@@ -17,7 +17,14 @@ namespace RabbitMQ.Abstraction.Messaging
         {
             _connection = connection;
 
-            _rabbitMQModelPool = new RabbitMQModelPool(_connection.CreateModel, modelPoolSize);
+            try
+            {
+                _rabbitMQModelPool = new RabbitMQModelPool(_connection.CreateModel, modelPoolSize);
+            }
+            catch (Exception e)
+            {
+                throw;
+            }
         }
 
         public Task<IModel> GetModelAsync()

@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 using RabbitMQ.Client;
@@ -12,10 +12,14 @@ namespace RabbitMQ.Abstraction.Messaging
         public readonly ConnectionFactory ConnectionFactory;
 
         private ConcurrentQueue<IRabbitMQConnection> _connections;
+        private readonly object _connectionsLock = new object();
 
         private readonly uint _poolSize;
 
         private readonly uint _modelPoolSize;
+
+        private static readonly string ClientIdentifier =
+            $"{Assembly.GetEntryAssembly().GetName().Name}(v{Assembly.GetEntryAssembly().GetName().Version})@{Environment.MachineName}";
 
         public RabbitMQConnectionPool(ConnectionFactory connectionFactory, uint poolSize = 1, uint modelPoolSize = 1)
         {
@@ -32,46 +36,98 @@ namespace RabbitMQ.Abstraction.Messaging
         public async Task<IRabbitMQConnection> GetConnectionAsync()
         {
             IRabbitMQConnection elegibleConnection;
+            bool success;
 
-            while(!_connections.TryDequeue(out elegibleConnection))
+            do
             {
-                EnsurePoolSize();
+                lock (_connectionsLock)
+                {
+                    success = _connections.TryDequeue(out elegibleConnection);
 
-                await Task.Delay(TimeSpan.FromMilliseconds(50));
-            }
+                    if (success)
+                    {
+                        if (elegibleConnection.IsOpen)
+                        {
+                            _connections.Enqueue(elegibleConnection);
+                        }
+                    }
+                }
 
-            _connections.Enqueue(elegibleConnection);
+                if (success && !elegibleConnection.IsOpen)
+                {
+                    elegibleConnection.Dispose();
+
+                    success = false;
+                }
+
+                if (!success)
+                {
+                    EnsurePoolSize();
+
+                    await Task.Delay(TimeSpan.FromMilliseconds(50));
+                }
+            } while (!success);
 
             return elegibleConnection;
         }
 
-        public IRabbitMQConnection CreateConnection(uint modelPoolSize = 1)
+        public IRabbitMQConnection CreateConnection(uint modelPoolSize = 1, string customIdentifier = null)
         {
-            return new RabbitMQConnection(ConnectionFactory.CreateConnection(), modelPoolSize);
+            try
+            {
+                var identifier = ClientIdentifier;
+
+                if (!string.IsNullOrWhiteSpace(customIdentifier))
+                {
+                    identifier += $"/{customIdentifier}";
+                }
+
+                var connection = ConnectionFactory.CreateConnection(identifier);
+
+                return new RabbitMQConnection(connection, modelPoolSize);
+            }
+            catch (Exception e)
+            {
+                throw;
+            }
         }
 
         private void EnsurePoolSize()
         {
-            lock(_connections)
+            lock(_connectionsLock)
             {
-                _connections = new ConcurrentQueue<IRabbitMQConnection>(_connections.Where(c => c.IsOpen));
+                var openConnections = new ConcurrentQueue<IRabbitMQConnection>();
+
+                foreach (var rabbitMQConnection in _connections)
+                {
+                    if (rabbitMQConnection.IsOpen)
+                    {
+                        openConnections.Enqueue(rabbitMQConnection);
+                    }
+                    else
+                    {
+                        rabbitMQConnection.Dispose();
+                    }
+                }
+
+                _connections = openConnections;
 
                 var newConnectionsNeeded = _poolSize - _connections.Count;
 
                 for (var i = 0; i < newConnectionsNeeded; i++)
                 {
-                    _connections.Enqueue(new RabbitMQConnection(ConnectionFactory.CreateConnection(), _modelPoolSize));
+                    _connections.Enqueue(new RabbitMQConnection(ConnectionFactory.CreateConnection(ClientIdentifier), _modelPoolSize));
                 }
             }
         }
 
         public void Dispose()
         {
-            lock(_connections)
+            lock(_connectionsLock)
             {
-                foreach (var connection in _connections.Where(c => c.IsOpen))
+                foreach (var connection in _connections)
                 {
-                    connection.Close();
+                    connection.Dispose();
                 }
 
                 _connections = null;

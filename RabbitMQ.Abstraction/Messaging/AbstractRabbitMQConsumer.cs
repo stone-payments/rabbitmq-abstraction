@@ -34,6 +34,59 @@ namespace RabbitMQ.Abstraction.Messaging
 
         private readonly object _scalingLock = new object();
 
+        protected IRabbitMQConnection ConsumerConnection
+        {
+            get
+            {
+                if (_consumerConnection != null)
+                {
+                    if (_consumerConnection.IsOpen)
+                    {
+                        return _consumerConnection;
+                    }
+                }
+
+                lock(_consumerConnectionLock)
+                {
+                    if (_consumerConnection != null)
+                    {
+                        if (_consumerConnection.IsOpen)
+                        {
+                            return _consumerConnection;
+                        }
+
+                        _consumerConnection.Dispose();
+                        _consumerConnection = null;
+                    }
+
+                    var success = false;
+
+                    do
+                    {
+                        try
+                        {
+                            _consumerConnection =
+                                ConnectionPool.CreateConnection(ConsumerCountManager.MaxConcurrentConsumers * 2, QueueName);
+
+                            success = true;
+                        }
+                        catch (Exception e)
+                        {
+                            _logger?.LogError(e, $"Unable to create consumer connection");
+
+                            Task.Delay(TimeSpan.FromMilliseconds(50)).Wait();
+                        }
+                    } while (!success);
+
+
+                    return _consumerConnection;
+                }
+            }
+        }
+
+        private IRabbitMQConnection _consumerConnection;
+        private object _consumerConnectionLock =  new object();
+
         protected AbstractRabbitMQConsumer(RabbitMQConnectionPool connectionPool, string queueName,
             ISerializer serializer = null, ILogger logger = null,
             IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null,
@@ -69,11 +122,13 @@ namespace RabbitMQ.Abstraction.Messaging
             {
                 await Task.Delay(100).ConfigureAwait(false);
             }
+
+            _consumerConnection.Dispose();
         }
 
         public async Task<uint> GetMessageCountAsync()
         {
-            using (var model = await (await ConnectionPool.GetConnectionAsync()).GetModelAsync().ConfigureAwait(false))
+            using (var model = await (await ConnectionPool.GetConnectionAsync().ConfigureAwait(false)).GetModelAsync().ConfigureAwait(false))
             {
                 return GetMessageCount(model);
             }
@@ -81,7 +136,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public async Task<uint> GetConsumerCountAsync()
         {
-            using (var model = await (await ConnectionPool.GetConnectionAsync()).GetModelAsync().ConfigureAwait(false))
+            using (var model = await (await ConnectionPool.GetConnectionAsync().ConfigureAwait(false)).GetModelAsync().ConfigureAwait(false))
             {
                 return GetConsumerCount(model);
             }
@@ -110,28 +165,29 @@ namespace RabbitMQ.Abstraction.Messaging
                                         Interlocked.Decrement(ref _scalingAmount);
                                         Interlocked.Increment(ref _consumerWorkersCount);
 
-                                        using (IQueueConsumerWorker consumerWorker = await CreateNewConsumerWorkerAsync().ConfigureAwait(false))
-                                        {
-                                            await consumerWorker.DoConsumeAsync(cancellationToken).ConfigureAwait(false);
-                                        }
+                                        var consumerWorker = await CreateNewConsumerWorkerAsync().ConfigureAwait(false);
+
+                                        await consumerWorker.DoConsumeAsync(cancellationToken).ConfigureAwait(false);
                                     }
                                     catch (Exception exception)
                                     {
                                         Interlocked.Increment(ref _scalingAmount);
                                         Interlocked.Decrement(ref _consumerWorkersCount);
 
-                                        _logger?.LogError(exception, $"{exception.Message}{Environment.NewLine}{exception.StackTrace}",
+                                        _logger?.LogError(exception,
+                                            $"{exception.Message}{Environment.NewLine}{exception.StackTrace}",
                                             new Dictionary<string, string>
-                                                {
-                                                    {"RabbitMQ.AdvancedConsumer", exception.ToString()},
-                                                    {"QueueName", QueueName}
-                                                });
+                                            {
+                                                {"RabbitMQ.AdvancedConsumer", exception.ToString()},
+                                                {"QueueName", QueueName}
+                                            });
                                     }
                                 }, cancellationToken);
                             }
                         }
 
-                        await Task.Delay(ConsumerCountManager.AutoscaleFrequency, cancellationToken).ConfigureAwait(false);
+                        await Task.Delay(ConsumerCountManager.AutoscaleFrequency, cancellationToken)
+                            .ConfigureAwait(false);
                     }
                     catch (Exception e)
                     {

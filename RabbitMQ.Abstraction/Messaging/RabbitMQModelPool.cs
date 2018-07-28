@@ -10,7 +10,7 @@ namespace RabbitMQ.Abstraction.Messaging
     public class RabbitMQModelPool : IDisposable
     {
         private ConcurrentQueue<IRabbitMQModel> _models;
-        private object _modelsLock = new object();
+        private readonly object _modelsLock = new object();
 
         private readonly uint _poolSize;
 
@@ -75,7 +75,7 @@ namespace RabbitMQ.Abstraction.Messaging
                         }
 
                         Interlocked.Decrement(ref _inUseModelCount);
-                    }));
+                    }, () => Interlocked.Decrement(ref _inUseModelCount)));
                 }
             }
         }

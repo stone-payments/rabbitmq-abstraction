@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -85,7 +86,7 @@ namespace RabbitMQ.Abstraction.Messaging
         }
 
         private IRabbitMQConnection _consumerConnection;
-        private object _consumerConnectionLock =  new object();
+        private readonly object _consumerConnectionLock =  new object();
 
         protected AbstractRabbitMQConsumer(RabbitMQConnectionPool connectionPool, string queueName,
             ISerializer serializer = null, ILogger logger = null,
@@ -156,9 +157,12 @@ namespace RabbitMQ.Abstraction.Messaging
                         {
                             _scalingAmount = ConsumerCountManager.GetScalingAmount(queueInfo, _consumerWorkersCount);
                             int counter = _scalingAmount;
-                            for (var i = 1; i <= counter; i++)
+
+                            var consumerWorkerStartTasks = new ConcurrentBag<Task>();
+                            
+                            Parallel.For(0, counter, i =>
                             {
-                                Task.Factory.StartNew(async () =>
+                                consumerWorkerStartTasks.Add(Task.Factory.StartNew(async () =>
                                 {
                                     try
                                     {
@@ -182,8 +186,17 @@ namespace RabbitMQ.Abstraction.Messaging
                                                 {"QueueName", QueueName}
                                             });
                                     }
-                                }, cancellationToken);
-                            }
+                                }, cancellationToken));
+                            });
+
+                            var localCancelationToken =
+                                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+                            localCancelationToken.CancelAfter(
+                                (int) ConsumerCountManager.AutoscaleFrequency.TotalMilliseconds +
+                                (int) TimeSpan.FromSeconds(30).TotalMilliseconds);
+
+                            Task.WaitAll(consumerWorkerStartTasks.ToArray(), localCancelationToken.Token);
                         }
 
                         await Task.Delay(ConsumerCountManager.AutoscaleFrequency, cancellationToken)
@@ -214,8 +227,11 @@ namespace RabbitMQ.Abstraction.Messaging
                 {
                     if (_scalingAmount < 0)
                     {
-                        Interlocked.Increment(ref _scalingAmount);
-                        Interlocked.Decrement(ref _consumerWorkersCount);
+                        if (_consumerWorkersCount > 0)
+                        {
+                            Interlocked.Increment(ref _scalingAmount);
+                            Interlocked.Decrement(ref _consumerWorkersCount);
+                        }
 
                         return true;
                     }

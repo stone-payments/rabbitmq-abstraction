@@ -11,11 +11,13 @@ namespace RabbitMQ.Abstraction.Messaging
         private readonly IModel _model;
 
         private readonly Action<RabbitMQModel> _requeueModelAction;
+        private readonly Action _discardModelAction;
 
-        public RabbitMQModel(IModel model, Action<RabbitMQModel> requeueModelAction)
+        public RabbitMQModel(IModel model, Action<RabbitMQModel> requeueModelAction, Action discardModelAction)
         {
             _model = model;
             _requeueModelAction = requeueModelAction;
+            _discardModelAction = discardModelAction;
         }
 
         public void End()
@@ -31,6 +33,7 @@ namespace RabbitMQ.Abstraction.Messaging
             }
             else
             {
+                _discardModelAction();
                 _model.Dispose();
             }
         }

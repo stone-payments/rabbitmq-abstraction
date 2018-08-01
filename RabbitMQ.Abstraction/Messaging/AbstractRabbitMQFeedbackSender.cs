@@ -1,11 +1,18 @@
-﻿using RabbitMQ.Abstraction.Messaging.Interfaces;
+﻿using System;
+using RabbitMQ.Abstraction.Messaging.Interfaces;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
+using RabbitMQ.Client.MessagePatterns;
 
 namespace RabbitMQ.Abstraction.Messaging
 {
     public abstract class AbstractRabbitMQFeedbackSender : IFeedbackSender
     {
         protected readonly IModel Model;
+
+        protected readonly ISubscription Subscription;
+
+        protected BasicDeliverEventArgs BasicDeliverEventArgs { get; }
 
         protected ulong DeliveryTag { get; }
 
@@ -19,11 +26,31 @@ namespace RabbitMQ.Abstraction.Messaging
             HasAcknoledged = false;
         }
 
+        protected AbstractRabbitMQFeedbackSender(ISubscription subscription,
+            BasicDeliverEventArgs basicDeliverEventArgs)
+        {
+            Subscription = subscription;
+            BasicDeliverEventArgs = basicDeliverEventArgs;
+        }
+
         public void Ack()
         {
             if (!HasAcknoledged)
             {
-                Model.BasicAck(DeliveryTag, IsMulti());
+                if (IsMulti() && Model == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Unable to perform multi acknoledgement when using Subscription");
+                }
+
+                if (IsMulti() || Model != null)
+                {
+                    Model.BasicAck(DeliveryTag, IsMulti());
+                }
+                else 
+                {
+                    Subscription.Ack(BasicDeliverEventArgs);
+                }
 
                 HasAcknoledged = true;
             }
@@ -33,7 +60,14 @@ namespace RabbitMQ.Abstraction.Messaging
         {
             if (!HasAcknoledged)
             {
-                Model.BasicNack(DeliveryTag, IsMulti(), requeue);
+                if (Model != null)
+                {
+                    Model.BasicNack(DeliveryTag, IsMulti(), requeue);
+                }
+                else
+                {
+                    Subscription.Nack(BasicDeliverEventArgs, IsMulti(), requeue);
+                }
 
                 HasAcknoledged = true;
             }

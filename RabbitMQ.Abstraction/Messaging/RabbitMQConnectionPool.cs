@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Reflection;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 using RabbitMQ.Client;
 
@@ -18,10 +19,12 @@ namespace RabbitMQ.Abstraction.Messaging
 
         private readonly uint _modelPoolSize;
 
+        private readonly ILogger _logger;
+
         private static readonly string ClientIdentifier =
             $"{Assembly.GetEntryAssembly().GetName().Name}(v{Assembly.GetEntryAssembly().GetName().Version})@{Environment.MachineName}";
 
-        public RabbitMQConnectionPool(ConnectionFactory connectionFactory, uint poolSize = 1, uint modelPoolSize = 1)
+        public RabbitMQConnectionPool(ConnectionFactory connectionFactory, uint poolSize = 1, uint modelPoolSize = 1, ILogger logger = null)
         {
             ConnectionFactory = connectionFactory;
 
@@ -29,6 +32,8 @@ namespace RabbitMQ.Abstraction.Messaging
 
             _poolSize = poolSize == 0 ? 1 : poolSize;
             _modelPoolSize = modelPoolSize == 0 ? 1 : modelPoolSize;
+
+            _logger = logger;
 
             EnsurePoolSize();
         }
@@ -88,6 +93,7 @@ namespace RabbitMQ.Abstraction.Messaging
             }
             catch (Exception e)
             {
+                _logger?.LogError(e, "Unable to create connection");
                 throw;
             }
         }
@@ -114,10 +120,28 @@ namespace RabbitMQ.Abstraction.Messaging
 
                 var newConnectionsNeeded = _poolSize - _connections.Count;
 
-                for (var i = 0; i < newConnectionsNeeded; i++)
+                Parallel.For(0, newConnectionsNeeded, i =>
                 {
-                    _connections.Enqueue(new RabbitMQConnection(ConnectionFactory.CreateConnection(ClientIdentifier), _modelPoolSize));
-                }
+                    var success = false;
+
+                    do
+                    {
+                        try
+                        {
+                            _connections.Enqueue(
+                                new RabbitMQConnection(ConnectionFactory.CreateConnection(ClientIdentifier),
+                                    _modelPoolSize));
+
+                            success = true;
+                        }
+                        catch (Exception e)
+                        {
+                            _logger?.LogError(e, "Unable to create pool connection");
+
+                            Task.Delay(TimeSpan.FromMilliseconds(50));
+                        }
+                    } while (!success);
+                });
             }
         }
 

@@ -50,11 +50,11 @@ namespace RabbitMQ.Abstraction.Messaging
                 UserName = match.Groups["user"].Value,
                 Password = match.Groups["password"].Value,
                 VirtualHost = match.Groups["vhost"].Value,
-                AutomaticRecoveryEnabled = false,
+                AutomaticRecoveryEnabled = true,
                 RequestedHeartbeat = 30,
             };
 
-            _connectionPool = new RabbitMQConnectionPool(connectionFactory, connectionPoolSize, modelPoolSize);
+            _connectionPool = new RabbitMQConnectionPool(connectionFactory, connectionPoolSize, modelPoolSize, logger);
             _serializer = serializer ?? new JsonSerializer();
             _logger = logger;
 
@@ -71,11 +71,11 @@ namespace RabbitMQ.Abstraction.Messaging
                 UserName = userName,
                 Password = password,
                 VirtualHost = virtualHost,
-                AutomaticRecoveryEnabled = false,
+                AutomaticRecoveryEnabled = true,
                 RequestedHeartbeat = 30,
             };
 
-            _connectionPool = new RabbitMQConnectionPool(connectionFactory, connectionPoolSize, modelPoolSize);
+            _connectionPool = new RabbitMQConnectionPool(connectionFactory, connectionPoolSize, modelPoolSize, logger);
             _serializer = serializer ?? new JsonSerializer();
             _logger = logger;
 
@@ -84,7 +84,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public RabbitMQClient(ConnectionFactory connectionFactory, ISerializer serializer = null, ILogger logger = null, uint connectionPoolSize = 1, uint modelPoolSize = 1)
         {
-            _connectionPool = new RabbitMQConnectionPool(connectionFactory, connectionPoolSize, modelPoolSize);
+            _connectionPool = new RabbitMQConnectionPool(connectionFactory, connectionPoolSize, modelPoolSize, logger);
             _serializer = serializer ?? new JsonSerializer();
             _logger = logger;
 
@@ -294,10 +294,7 @@ namespace RabbitMQ.Abstraction.Messaging
         public async Task EnsureQueueExistsAsync(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false, 
             IDictionary<string, object> arguments = null)
         {
-            if (!await QueueExistsAsync(queueName).ConfigureAwait(false))
-            {
-                await QueueDeclareAsync(queueName, durable, exclusive, autoDelete, arguments).ConfigureAwait(false);
-            }
+            await QueueDeclareAsync(queueName, durable, exclusive, autoDelete, arguments).ConfigureAwait(false);
         }
 
         public async Task<uint> QueuePurgeAsync(string queueName)

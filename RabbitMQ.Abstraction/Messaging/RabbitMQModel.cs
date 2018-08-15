@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
@@ -12,12 +13,45 @@ namespace RabbitMQ.Abstraction.Messaging
 
         private readonly Action<RabbitMQModel> _requeueModelAction;
         private readonly Action _discardModelAction;
+        private readonly ILogger _logger;
 
-        public RabbitMQModel(IModel model, Action<RabbitMQModel> requeueModelAction, Action discardModelAction)
+        public RabbitMQModel(ILogger logger, IModel model, Action<RabbitMQModel> requeueModelAction, Action discardModelAction)
         {
+            _logger = logger;
             _model = model;
             _requeueModelAction = requeueModelAction;
             _discardModelAction = discardModelAction;
+
+            SubscribeModelEvents();
+        }
+
+        private void SubscribeModelEvents()
+        {
+            _model.CallbackException += _model_CallbackException;
+            _model.BasicRecoverOk += _model_BasicRecoverOk;
+            _model.ModelShutdown += _model_ModelShutdown;
+        }
+
+        private void UnsubscribeModelEvents()
+        {
+            _model.CallbackException -= _model_CallbackException;
+            _model.BasicRecoverOk -= _model_BasicRecoverOk;
+            _model.ModelShutdown -= _model_ModelShutdown;
+        }
+
+        private void _model_ModelShutdown(object sender, ShutdownEventArgs e)
+        {
+            _logger?.LogInformation($"RabbitMQModel Shutdown. Cause: {e.Cause} ReplyText: {e.ReplyText} ");
+        }
+
+        private void _model_BasicRecoverOk(object sender, EventArgs e)
+        {
+            _logger?.LogInformation("RabbitMQModel Basic Recover Ok.");
+        }
+
+        private void _model_CallbackException(object sender, CallbackExceptionEventArgs e)
+        {
+            _logger?.LogError(e.Exception, $"RabbitMQModel Shutdown. Message: {e.Exception.Message}{Environment.NewLine}StackTrace: {e.Exception.StackTrace} ");
         }
 
         public void End()
@@ -36,6 +70,7 @@ namespace RabbitMQ.Abstraction.Messaging
                 _discardModelAction();
                 _model.Dispose();
             }
+            UnsubscribeModelEvents();
         }
 
         public void Abort()

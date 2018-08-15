@@ -56,13 +56,7 @@ namespace RabbitMQ.Abstraction.Messaging
                             return _consumerConnection;
                         }
 
-                        _consumerConnection.ConnectionShutdown -= _consumerConnection_ConnectionShutdown;
-                        _consumerConnection.ConnectionRecoveryError -= _consumerConnection_ConnectionRecoveryError;
-                        _consumerConnection.CallbackException -= _consumerConnection_CallbackException;
-                        _consumerConnection.ConnectionBlocked -= _consumerConnection_ConnectionBlocked;
-                        _consumerConnection.ConnectionUnblocked -= _consumerConnection_ConnectionUnblocked;
-                        _consumerConnection.RecoverySucceeded -= _consumerConnection_RecoverySucceeded;
-
+                        UnsubscribeConnectionEvents();
                         _consumerConnection.Dispose();
                         _consumerConnection = null;
                     }
@@ -76,13 +70,7 @@ namespace RabbitMQ.Abstraction.Messaging
                             _consumerConnection =
                                 ConnectionPool.CreateConnection(ConsumerCountManager.MaxConcurrentConsumers * 2, QueueName);
 
-                            _consumerConnection.ConnectionShutdown += _consumerConnection_ConnectionShutdown;
-                            _consumerConnection.ConnectionRecoveryError += _consumerConnection_ConnectionRecoveryError;
-                            _consumerConnection.CallbackException += _consumerConnection_CallbackException;
-                            _consumerConnection.ConnectionBlocked += _consumerConnection_ConnectionBlocked;
-                            _consumerConnection.ConnectionUnblocked += _consumerConnection_ConnectionUnblocked;
-                            _consumerConnection.RecoverySucceeded += _consumerConnection_RecoverySucceeded;
-
+                            SubscribeConnectionEvents();
                             success = true;
                         }
                         catch (Exception e)
@@ -97,6 +85,26 @@ namespace RabbitMQ.Abstraction.Messaging
                     return _consumerConnection;
                 }
             }
+        }
+
+        private void SubscribeConnectionEvents()
+        {
+            _consumerConnection.ConnectionShutdown += _consumerConnection_ConnectionShutdown;
+            _consumerConnection.ConnectionRecoveryError += _consumerConnection_ConnectionRecoveryError;
+            _consumerConnection.CallbackException += _consumerConnection_CallbackException;
+            _consumerConnection.ConnectionBlocked += _consumerConnection_ConnectionBlocked;
+            _consumerConnection.ConnectionUnblocked += _consumerConnection_ConnectionUnblocked;
+            _consumerConnection.RecoverySucceeded += _consumerConnection_RecoverySucceeded;
+        }
+
+        private void UnsubscribeConnectionEvents()
+        {
+            _consumerConnection.ConnectionShutdown -= _consumerConnection_ConnectionShutdown;
+            _consumerConnection.ConnectionRecoveryError -= _consumerConnection_ConnectionRecoveryError;
+            _consumerConnection.CallbackException -= _consumerConnection_CallbackException;
+            _consumerConnection.ConnectionBlocked -= _consumerConnection_ConnectionBlocked;
+            _consumerConnection.ConnectionUnblocked -= _consumerConnection_ConnectionUnblocked;
+            _consumerConnection.RecoverySucceeded -= _consumerConnection_RecoverySucceeded;
         }
 
         private void _consumerConnection_RecoverySucceeded(object sender, EventArgs e)

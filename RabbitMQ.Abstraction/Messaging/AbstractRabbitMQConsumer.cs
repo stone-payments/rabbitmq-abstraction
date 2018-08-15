@@ -124,7 +124,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         private void _consumerConnection_CallbackException(object sender, Client.Events.CallbackExceptionEventArgs e)
         {
-            _logger.LogInformation($"RabbitMQAbstraction[{QueueName}] Connection CallbackException. Message: {e.Exception.Message}{Environment.NewLine}Stacktrace: {e.Exception.StackTrace}");
+            _logger.LogError(e.Exception, $"RabbitMQAbstraction[{QueueName}] Connection CallbackException. Message: {e.Exception.Message}{Environment.NewLine}Stacktrace: {e.Exception.StackTrace}");
         }
 
         private void _consumerConnection_ConnectionRecoveryError(object sender, Client.Events.ConnectionRecoveryErrorEventArgs e)

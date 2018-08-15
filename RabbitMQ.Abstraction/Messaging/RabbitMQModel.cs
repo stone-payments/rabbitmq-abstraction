@@ -51,7 +51,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         private void _model_CallbackException(object sender, CallbackExceptionEventArgs e)
         {
-            _logger.LogInformation($"RabbitMQModel Shutdown. Message: {e.Exception.Message}{Environment.NewLine}StackTrace: {e.Exception.StackTrace} ");
+            _logger.LogError(e.Exception, $"RabbitMQModel Shutdown. Message: {e.Exception.Message}{Environment.NewLine}StackTrace: {e.Exception.StackTrace} ");
         }
 
         public void End()

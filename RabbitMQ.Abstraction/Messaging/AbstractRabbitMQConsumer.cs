@@ -56,6 +56,13 @@ namespace RabbitMQ.Abstraction.Messaging
                             return _consumerConnection;
                         }
 
+                        _consumerConnection.ConnectionShutdown -= _consumerConnection_ConnectionShutdown;
+                        _consumerConnection.ConnectionRecoveryError -= _consumerConnection_ConnectionRecoveryError;
+                        _consumerConnection.CallbackException -= _consumerConnection_CallbackException;
+                        _consumerConnection.ConnectionBlocked -= _consumerConnection_ConnectionBlocked;
+                        _consumerConnection.ConnectionUnblocked -= _consumerConnection_ConnectionUnblocked;
+                        _consumerConnection.RecoverySucceeded -= _consumerConnection_RecoverySucceeded;
+
                         _consumerConnection.Dispose();
                         _consumerConnection = null;
                     }
@@ -68,6 +75,13 @@ namespace RabbitMQ.Abstraction.Messaging
                         {
                             _consumerConnection =
                                 ConnectionPool.CreateConnection(ConsumerCountManager.MaxConcurrentConsumers * 2, QueueName);
+
+                            _consumerConnection.ConnectionShutdown += _consumerConnection_ConnectionShutdown;
+                            _consumerConnection.ConnectionRecoveryError += _consumerConnection_ConnectionRecoveryError;
+                            _consumerConnection.CallbackException += _consumerConnection_CallbackException;
+                            _consumerConnection.ConnectionBlocked += _consumerConnection_ConnectionBlocked;
+                            _consumerConnection.ConnectionUnblocked += _consumerConnection_ConnectionUnblocked;
+                            _consumerConnection.RecoverySucceeded += _consumerConnection_RecoverySucceeded;
 
                             success = true;
                         }
@@ -83,6 +97,36 @@ namespace RabbitMQ.Abstraction.Messaging
                     return _consumerConnection;
                 }
             }
+        }
+
+        private void _consumerConnection_RecoverySucceeded(object sender, EventArgs e)
+        {
+            _logger.LogInformation($"RabbitMQAbstraction[{QueueName}] Connection Recovery Succeeded");
+        }
+
+        private void _consumerConnection_ConnectionUnblocked(object sender, EventArgs e)
+        {
+            _logger.LogInformation($"RabbitMQAbstraction[{QueueName}] Connection Unblocked");
+        }
+
+        private void _consumerConnection_ConnectionBlocked(object sender, Client.Events.ConnectionBlockedEventArgs e)
+        {
+            _logger.LogInformation($"RabbitMQAbstraction[{QueueName}] Connection Blocked");
+        }
+
+        private void _consumerConnection_CallbackException(object sender, Client.Events.CallbackExceptionEventArgs e)
+        {
+            _logger.LogInformation($"RabbitMQAbstraction[{QueueName}] Connection CallbackException. Message: {e.Exception.Message}{Environment.NewLine}Stacktrace: {e.Exception.StackTrace}");
+        }
+
+        private void _consumerConnection_ConnectionRecoveryError(object sender, Client.Events.ConnectionRecoveryErrorEventArgs e)
+        {
+            _logger.LogInformation($"RabbitMQAbstraction[{QueueName}] Connection Recovery Error. Message: {e.Exception.Message}{Environment.NewLine}Stacktrace: {e.Exception.StackTrace}");
+        }
+
+        private void _consumerConnection_ConnectionShutdown(object sender, ShutdownEventArgs e)
+        {
+            _logger.LogInformation($"RabbitMQAbstraction[{QueueName}] Connection Shutdown. Cause: {e.Cause} ReplyText: {e.ReplyText}");
         }
 
         private IRabbitMQConnection _consumerConnection;

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
@@ -13,13 +14,13 @@ namespace RabbitMQ.Abstraction.Messaging
 
         private readonly RabbitMQModelPool _rabbitMQModelPool;
 
-        public RabbitMQConnection(IConnection connection, uint modelPoolSize = 1)
+        public RabbitMQConnection(IConnection connection, ILogger logger, uint modelPoolSize = 1)
         {
             _connection = connection;
 
             try
             {
-                _rabbitMQModelPool = new RabbitMQModelPool(_connection.CreateModel, modelPoolSize);
+                _rabbitMQModelPool = new RabbitMQModelPool(_connection.CreateModel, logger, modelPoolSize);
             }
             catch (Exception e)
             {

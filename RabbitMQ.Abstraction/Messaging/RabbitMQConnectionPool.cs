@@ -89,7 +89,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
                 var connection = ConnectionFactory.CreateConnection(identifier);
 
-                return new RabbitMQConnection(connection, modelPoolSize);
+                return new RabbitMQConnection(connection, _logger, modelPoolSize);
             }
             catch (Exception e)
             {
@@ -129,7 +129,7 @@ namespace RabbitMQ.Abstraction.Messaging
                         try
                         {
                             _connections.Enqueue(
-                                new RabbitMQConnection(ConnectionFactory.CreateConnection(ClientIdentifier),
+                                new RabbitMQConnection(ConnectionFactory.CreateConnection(ClientIdentifier), _logger,
                                     _modelPoolSize));
 
                             success = true;

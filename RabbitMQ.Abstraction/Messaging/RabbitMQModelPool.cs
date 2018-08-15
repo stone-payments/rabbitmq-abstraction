@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 using RabbitMQ.Client;
 
@@ -9,6 +10,7 @@ namespace RabbitMQ.Abstraction.Messaging
 {
     public class RabbitMQModelPool : IDisposable
     {
+        private readonly ILogger _logger;
         private ConcurrentQueue<IRabbitMQModel> _models;
         private readonly object _modelsLock = new object();
 
@@ -18,13 +20,14 @@ namespace RabbitMQ.Abstraction.Messaging
 
         private int _inUseModelCount;
 
-        public RabbitMQModelPool(Func<IModel> createModelFunc, uint poolSize = 1)
+        public RabbitMQModelPool(Func<IModel> createModelFunc, ILogger logger, uint poolSize = 1)
         {
             try
             {
                 _poolSize = poolSize == 0 ? 1 : poolSize;
                 _createModelFunc = createModelFunc;
                 _inUseModelCount = 0;
+                _logger = logger;
 
                 _models = new ConcurrentQueue<IRabbitMQModel>();
 
@@ -67,7 +70,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
                 for (var i = 0; i < newModelsNeeded; i++)
                 {
-                    _models.Enqueue(new RabbitMQModel(_createModelFunc(), model =>
+                    _models.Enqueue(new RabbitMQModel(_logger, _createModelFunc(), model =>
                     {
                         lock (_modelsLock)
                         {

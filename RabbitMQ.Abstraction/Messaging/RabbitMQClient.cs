@@ -1,4 +1,10 @@
-﻿using System;
+﻿using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using RabbitMQ.Abstraction.Interfaces;
+using RabbitMQ.Abstraction.Messaging.Interfaces;
+using RabbitMQ.Abstraction.Serialization.Interfaces;
+using RabbitMQ.Client;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net.Http;
@@ -6,12 +12,6 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using RabbitMQ.Abstraction.Interfaces;
-using RabbitMQ.Abstraction.Messaging.Interfaces;
-using RabbitMQ.Abstraction.Serialization.Interfaces;
-using RabbitMQ.Client;
 using JsonSerializer = RabbitMQ.Abstraction.Serialization.JsonSerializer;
 
 namespace RabbitMQ.Abstraction.Messaging
@@ -37,7 +37,8 @@ namespace RabbitMQ.Abstraction.Messaging
         ///  <param name="logger"></param>
         /// <param name="connectionPoolSize"></param>
         /// <param name="modelPoolSize"></param>
-        public RabbitMQClient(string connectionString, ISerializer serializer = null, ILogger logger = null, uint connectionPoolSize = 1, uint modelPoolSize = 1)
+        /// <param name="heartbeat"></param>
+        public RabbitMQClient(string connectionString, ISerializer serializer = null, ILogger logger = null, uint connectionPoolSize = 1, uint modelPoolSize = 1, ushort heartbeat = 60)
         {
             var match = _connectionStringPattern.Match(connectionString);
             if (!match.Success)
@@ -51,7 +52,7 @@ namespace RabbitMQ.Abstraction.Messaging
                 Password = match.Groups["password"].Value,
                 VirtualHost = match.Groups["vhost"].Value,
                 AutomaticRecoveryEnabled = true,
-                RequestedHeartbeat = 30,
+                RequestedHeartbeat = heartbeat,
             };
 
             _connectionPool = new RabbitMQConnectionPool(connectionFactory, connectionPoolSize, modelPoolSize, logger);
@@ -62,7 +63,7 @@ namespace RabbitMQ.Abstraction.Messaging
         }
 
         public RabbitMQClient(string hostName, int port, string userName, string password, string virtualHost,
-            ISerializer serializer = null, ILogger logger = null, uint connectionPoolSize = 1, uint modelPoolSize = 1)
+            ISerializer serializer = null, ILogger logger = null, uint connectionPoolSize = 1, uint modelPoolSize = 1, ushort heartbeat = 60)
         {
             var connectionFactory = new ConnectionFactory
             {
@@ -72,7 +73,7 @@ namespace RabbitMQ.Abstraction.Messaging
                 Password = password,
                 VirtualHost = virtualHost,
                 AutomaticRecoveryEnabled = true,
-                RequestedHeartbeat = 30,
+                RequestedHeartbeat = heartbeat,
             };
 
             _connectionPool = new RabbitMQConnectionPool(connectionFactory, connectionPoolSize, modelPoolSize, logger);
@@ -124,7 +125,7 @@ namespace RabbitMQ.Abstraction.Messaging
                 {
                     props.Priority = priority.Value;
                 }
-                
+
                 var payload = Encoding.UTF8.GetBytes(serializedContent);
                 model.BasicPublish(exchangeName, routingKey, props, payload);
             }
@@ -184,7 +185,7 @@ namespace RabbitMQ.Abstraction.Messaging
                     {
                         model.TxRollback();
                     }
-                    
+
                     throw;
                 }
             }
@@ -226,7 +227,7 @@ namespace RabbitMQ.Abstraction.Messaging
             }
         }
 
-        public async Task QueueDeclareAsync(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false, 
+        public async Task QueueDeclareAsync(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false,
             IDictionary<string, object> arguments = null)
         {
             using (var model = await (await _connectionPool.GetConnectionAsync().ConfigureAwait(false)).GetModelAsync().ConfigureAwait(false))
@@ -291,7 +292,7 @@ namespace RabbitMQ.Abstraction.Messaging
             }
         }
 
-        public async Task EnsureQueueExistsAsync(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false, 
+        public async Task EnsureQueueExistsAsync(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false,
             IDictionary<string, object> arguments = null)
         {
             await QueueDeclareAsync(queueName, durable, exclusive, autoDelete, arguments).ConfigureAwait(false);
@@ -355,7 +356,7 @@ namespace RabbitMQ.Abstraction.Messaging
             var response = await _httpClient.PutAsync($"/api/parameters/shovel/{virtualHostName}/{shovelName}",
                     new StringContent(
                         JsonConvert.SerializeObject(shovelConfiguration,
-                            new JsonSerializerSettings {NullValueHandling = NullValueHandling.Ignore}), Encoding.UTF8,
+                            new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }), Encoding.UTF8,
                         "application/json"))
                 .ConfigureAwait(false);
 

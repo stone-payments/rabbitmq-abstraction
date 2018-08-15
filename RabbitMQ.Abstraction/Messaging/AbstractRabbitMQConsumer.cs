@@ -114,27 +114,27 @@ namespace RabbitMQ.Abstraction.Messaging
 
         private void _consumerConnection_ConnectionUnblocked(object sender, EventArgs e)
         {
-            _logger.LogInformation($"RabbitMQAbstraction[{QueueName}] Connection Unblocked");
+            _logger?.LogInformation($"RabbitMQAbstraction[{QueueName}] Connection Unblocked");
         }
 
         private void _consumerConnection_ConnectionBlocked(object sender, Client.Events.ConnectionBlockedEventArgs e)
         {
-            _logger.LogInformation($"RabbitMQAbstraction[{QueueName}] Connection Blocked");
+            _logger?.LogInformation($"RabbitMQAbstraction[{QueueName}] Connection Blocked");
         }
 
         private void _consumerConnection_CallbackException(object sender, Client.Events.CallbackExceptionEventArgs e)
         {
-            _logger.LogError(e.Exception, $"RabbitMQAbstraction[{QueueName}] Connection CallbackException. Message: {e.Exception.Message}{Environment.NewLine}Stacktrace: {e.Exception.StackTrace}");
+            _logger?.LogError(e.Exception, $"RabbitMQAbstraction[{QueueName}] Connection CallbackException. Message: {e.Exception.Message}{Environment.NewLine}Stacktrace: {e.Exception.StackTrace}");
         }
 
         private void _consumerConnection_ConnectionRecoveryError(object sender, Client.Events.ConnectionRecoveryErrorEventArgs e)
         {
-            _logger.LogInformation($"RabbitMQAbstraction[{QueueName}] Connection Recovery Error. Message: {e.Exception.Message}{Environment.NewLine}Stacktrace: {e.Exception.StackTrace}");
+            _logger?.LogInformation($"RabbitMQAbstraction[{QueueName}] Connection Recovery Error. Message: {e.Exception.Message}{Environment.NewLine}Stacktrace: {e.Exception.StackTrace}");
         }
 
         private void _consumerConnection_ConnectionShutdown(object sender, ShutdownEventArgs e)
         {
-            _logger.LogInformation($"RabbitMQAbstraction[{QueueName}] Connection Shutdown. Cause: {e.Cause} ReplyText: {e.ReplyText}");
+            _logger?.LogInformation($"RabbitMQAbstraction[{QueueName}] Connection Shutdown. Cause: {e.Cause} ReplyText: {e.ReplyText}");
         }
 
         private IRabbitMQConnection _consumerConnection;

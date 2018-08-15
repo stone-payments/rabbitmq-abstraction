@@ -41,17 +41,17 @@ namespace RabbitMQ.Abstraction.Messaging
 
         private void _model_ModelShutdown(object sender, ShutdownEventArgs e)
         {
-            _logger.LogInformation($"RabbitMQModel Shutdown. Cause: {e.Cause} ReplyText: {e.ReplyText} ");
+            _logger?.LogInformation($"RabbitMQModel Shutdown. Cause: {e.Cause} ReplyText: {e.ReplyText} ");
         }
 
         private void _model_BasicRecoverOk(object sender, EventArgs e)
         {
-            _logger.LogInformation("RabbitMQModel Basic Recover Ok.");
+            _logger?.LogInformation("RabbitMQModel Basic Recover Ok.");
         }
 
         private void _model_CallbackException(object sender, CallbackExceptionEventArgs e)
         {
-            _logger.LogError(e.Exception, $"RabbitMQModel Shutdown. Message: {e.Exception.Message}{Environment.NewLine}StackTrace: {e.Exception.StackTrace} ");
+            _logger?.LogError(e.Exception, $"RabbitMQModel Shutdown. Message: {e.Exception.Message}{Environment.NewLine}StackTrace: {e.Exception.StackTrace} ");
         }
 
         public void End()

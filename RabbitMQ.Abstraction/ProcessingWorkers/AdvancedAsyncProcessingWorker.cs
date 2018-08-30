@@ -4,13 +4,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Abstraction.Interfaces;
+using RabbitMQ.Abstraction.Messaging;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 
 namespace RabbitMQ.Abstraction.ProcessingWorkers
 {
     public class AdvancedAsyncProcessingWorker<T> : AbstractAdvancedProcessingWorker<T> where T : class
     {
-        private readonly Func<T, CancellationToken, Task> _callbackFunc;
+        private readonly Func<T, RabbitMQConsumerContext, CancellationToken, Task> _callbackFunc;
 
         private readonly TimeSpan _processingTimeout;
 
@@ -18,9 +19,9 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
 
         private readonly ushort _batchSize;
 
-        public AdvancedAsyncProcessingWorker(IQueueConsumer consumer, 
-            Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout, 
-            ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue, 
+        public AdvancedAsyncProcessingWorker(IQueueConsumer consumer,
+            Func<T, RabbitMQConsumerContext, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout,
+            ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, ILogger logger = null)
             : base(consumer, exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds, logger)
         {
@@ -29,7 +30,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
         }
 
         public AdvancedAsyncProcessingWorker(IQueueConsumer consumer,
-            Func<IEnumerable<T>, CancellationToken, Task> batchCallbackFunc, ushort batchSize, TimeSpan processingTimeout, 
+            Func<IEnumerable<T>, CancellationToken, Task> batchCallbackFunc, ushort batchSize, TimeSpan processingTimeout,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, ILogger logger = null)
             : base(consumer, exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds, logger)
@@ -40,7 +41,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
         }
 
         public AdvancedAsyncProcessingWorker(IQueueClient queueClient, string queueName,
-            Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout,
+            Func<T, RabbitMQConsumerContext, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0,
             IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null,
@@ -68,11 +69,11 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
         }
 
         public static async Task<AdvancedAsyncProcessingWorker<T>> CreateAndStartAsync(IQueueConsumer consumer,
-            Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout, CancellationToken cancellationToken, 
+            Func<T, RabbitMQConsumerContext, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout, CancellationToken cancellationToken,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, ILogger logger = null)
         {
-            var instance = new AdvancedAsyncProcessingWorker<T>(consumer, callbackFunc, processingTimeout, 
+            var instance = new AdvancedAsyncProcessingWorker<T>(consumer, callbackFunc, processingTimeout,
             exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds, logger);
 
             await instance.StartAsync(cancellationToken).ConfigureAwait(false);
@@ -94,7 +95,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
         }
 
         public static async Task<AdvancedAsyncProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient,
-            string queueName, Func<T, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout,
+            string queueName, Func<T, RabbitMQConsumerContext, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout,
             CancellationToken cancellationToken,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0,
@@ -129,12 +130,12 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             return instance;
         }
 
-        public Task<Task> StartAsync(CancellationToken cancellationToken)
+        public Task StartAsync(CancellationToken cancellationToken)
         {
             return StartAsync(cancellationToken, _batchCallbackFunc != null);
         }
 
-        protected override async Task<bool> TryInvokeAsync(T message, List<Exception> exceptions, 
+        protected override async Task<bool> TryInvokeAsync(T message, RabbitMQConsumerContext consumerContext, List<Exception> exceptions,
             CancellationToken cancellationToken)
         {
             try
@@ -143,7 +144,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
                 {
                     tokenSource.CancelAfter(_processingTimeout);
 
-                    await _callbackFunc(message, tokenSource.Token).ConfigureAwait(false);
+                    await _callbackFunc(message, consumerContext, tokenSource.Token).ConfigureAwait(false);
                 }
 
                 return true;
@@ -158,7 +159,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
 
         protected override async Task<bool> TryInvokeBatchAsync(IEnumerable<T> batch, List<Exception> exceptions, CancellationToken cancellationToken)
         {
-            if(_batchCallbackFunc == null)
+            if (_batchCallbackFunc == null)
             {
                 throw new Exception("Undefined batch callback function");
             }

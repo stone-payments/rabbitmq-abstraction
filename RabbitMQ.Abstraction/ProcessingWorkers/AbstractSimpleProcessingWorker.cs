@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Abstraction.Interfaces;
+using RabbitMQ.Abstraction.Messaging;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 
 namespace RabbitMQ.Abstraction.ProcessingWorkers
@@ -46,7 +47,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             PrefetchCount = prefetchCount;
         }
 
-        protected Task<Task> StartAsync(CancellationToken cancellationToken, bool batched)
+        protected Task StartAsync(CancellationToken cancellationToken, bool batched)
         {
             if (Consumer == null)
             {
@@ -79,7 +80,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             Stop();
         }
 
-        public abstract Task OnMessageAsync(T message, IFeedbackSender feedbackSender, CancellationToken cancellationToken);
+        public abstract Task OnMessageAsync(T message, RabbitMQConsumerContext consumerContext, IFeedbackSender feedbackSender, CancellationToken cancellationToken);
 
         public abstract Task OnBatchAsync(IEnumerable<T> batch, IFeedbackSender feedbackSender, CancellationToken cancellationToken);
 

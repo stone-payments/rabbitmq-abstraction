@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <PackageId>Stone.RabbitMQ.Abstraction</PackageId>
-    <PackageVersion>2.0.0-beta8</PackageVersion>
+    <PackageVersion>2.0.1-beta1</PackageVersion>
     <Title>RabbitMQ Abstraction</Title>
     <Authors>Stone Pagamentos</Authors>
     <Description>RabbitMQ Abstraction for messaging workflow and infrastructure management</Description>
@@ -22,7 +22,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="2.0.0" />
     <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
-    <PackageReference Include="RabbitMQ.Client" Version="5.0.1" />
+    <PackageReference Include="RabbitMQ.Client" Version="5.1.0" />
     <PackageReference Include="System.Threading.Tasks.Parallel" Version="4.3.0" />
   </ItemGroup>
 

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Abstraction.Exceptions.Workflow;
 using RabbitMQ.Abstraction.Interfaces;
+using RabbitMQ.Abstraction.Messaging;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 
 namespace RabbitMQ.Abstraction.ProcessingWorkers
@@ -18,8 +19,8 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
 
         protected readonly ExceptionHandlingStrategy ExceptionHandlingStrategy;
 
-        protected AbstractAdvancedProcessingWorker(IQueueConsumer consumer, 
-            ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue, 
+        protected AbstractAdvancedProcessingWorker(IQueueConsumer consumer,
+            ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, ILogger logger = null)
             : base(consumer, logger)
         {
@@ -28,9 +29,9 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             ExceptionHandlingStrategy = exceptionHandlingStrategy;
         }
 
-        protected AbstractAdvancedProcessingWorker(IQueueClient queueClient, string queueName, 
-            ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue, 
-            int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, 
+        protected AbstractAdvancedProcessingWorker(IQueueClient queueClient, string queueName,
+            ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
+            int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0,
             IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null, ushort prefetchCount = 1)
             : base(queueClient, queueName, consumerCountManager, messageRejectionHandler, logger, prefetchCount)
         {
@@ -39,13 +40,13 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             ExceptionHandlingStrategy = exceptionHandlingStrategy;
         }
 
-        protected abstract Task<bool> TryInvokeAsync(T message, List<Exception> exceptions, 
+        protected abstract Task<bool> TryInvokeAsync(T message, RabbitMQConsumerContext consumerContext, List<Exception> exceptions,
             CancellationToken cancellationToken);
 
         protected abstract Task<bool> TryInvokeBatchAsync(IEnumerable<T> batch, List<Exception> exceptions,
             CancellationToken cancellationToken);
 
-        public override async Task OnMessageAsync(T message, IFeedbackSender feedbackSender, 
+        public override async Task OnMessageAsync(T message, RabbitMQConsumerContext consumerContext, IFeedbackSender feedbackSender,
             CancellationToken cancellationToken)
         {
             var invocationSuccess = false;
@@ -62,7 +63,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
 
                 tryCount++;
 
-                invocationSuccess = await TryInvokeAsync(message, exceptions, cancellationToken).ConfigureAwait(false);
+                invocationSuccess = await TryInvokeAsync(message, consumerContext, exceptions, cancellationToken).ConfigureAwait(false);
             }
 
             if (invocationSuccess)
@@ -73,13 +74,13 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             {
                 feedbackSender.Nack(true);
 
-                Logger.LogWarning(new AggregateException(exceptions), "Message successfully processed, but exceptions were thrown");
+                Logger.LogWarning(new AggregateException(exceptions), $"Message successfully processed, but exceptions were thrown after {tryCount} tries");
             }
             else
             {
                 feedbackSender.Nack(false);
 
-                Logger.LogError(new AggregateException(exceptions), "Unable to successfully process message");
+                Logger.LogError(new AggregateException(exceptions), $"Unable to successfully process message after {tryCount} tries");
             }
         }
 

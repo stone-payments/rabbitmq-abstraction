@@ -4,19 +4,20 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Abstraction.Interfaces;
+using RabbitMQ.Abstraction.Messaging;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 
 namespace RabbitMQ.Abstraction.ProcessingWorkers
 {
     public class SimpleProcessingWorker<T> : AbstractSimpleProcessingWorker<T> where T : class
     {
-        private readonly Action<T> _callbackAction;
+        private readonly Action<T, RabbitMQConsumerContext> _callbackAction;
 
         private readonly Action<IEnumerable<T>> _batchCallbackAction;
 
         private readonly ushort _batchSize;
 
-        public SimpleProcessingWorker(IQueueConsumer consumer, Action<T> callbackAction, ILogger logger = null)
+        public SimpleProcessingWorker(IQueueConsumer consumer, Action<T, RabbitMQConsumerContext> callbackAction, ILogger logger = null)
             : base(consumer, logger)
         {
             _callbackAction = callbackAction;
@@ -29,7 +30,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             _batchSize = batchSize;
         }
 
-        public SimpleProcessingWorker(IQueueClient queueClient, string queueName, Action<T> callbackAction,
+        public SimpleProcessingWorker(IQueueClient queueClient, string queueName, Action<T, RabbitMQConsumerContext> callbackAction,
             IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null,
             ILogger logger = null, ushort prefetchCount = 1)
             : base(queueClient, queueName, consumerCountManager, messageRejectionHandler, logger, prefetchCount)
@@ -47,8 +48,8 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             _batchSize = batchSize;
         }
 
-        public static async Task<SimpleProcessingWorker<T>> CreateAndStartAsync(IQueueConsumer consumer, 
-            Action<T> callbackAction, CancellationToken cancellationToken, ILogger logger = null)
+        public static async Task<SimpleProcessingWorker<T>> CreateAndStartAsync(IQueueConsumer consumer,
+            Action<T, RabbitMQConsumerContext> callbackAction, CancellationToken cancellationToken, ILogger logger = null)
         {
             var instance = new SimpleProcessingWorker<T>(consumer, callbackAction, logger);
 
@@ -69,7 +70,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
 
         public static async Task<SimpleProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient,
             string queueName,
-            Action<T> callbackAction, CancellationToken cancellationToken,
+            Action<T, RabbitMQConsumerContext> callbackAction, CancellationToken cancellationToken,
             IConsumerCountManager consumerCountManager = null,
             IMessageRejectionHandler messageRejectionHandler = null, ILogger logger = null, ushort prefetchCount = 1)
         {
@@ -95,20 +96,20 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             return instance;
         }
 
-        public Task<Task> StartAsync(CancellationToken cancellationToken)
+        public Task StartAsync(CancellationToken cancellationToken)
         {
             return StartAsync(cancellationToken, _batchCallbackAction != null);
         }
 
-        public override Task OnMessageAsync(T message, IFeedbackSender feedbackSender, 
+        public override Task OnMessageAsync(T message, RabbitMQConsumerContext consumerContext, IFeedbackSender feedbackSender,
             CancellationToken cancellationToken)
         {
             try
             {
-                _callbackAction(message);
+                _callbackAction(message, consumerContext);
                 feedbackSender.Ack();
             }
-            catch (Exception)
+            catch (Exception e)
             {
                 feedbackSender.Nack(true);
             }
@@ -128,7 +129,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
                 _batchCallbackAction(batch);
                 feedbackSender.Ack();
             }
-            catch (Exception)
+            catch (Exception e)
             {
                 feedbackSender.Nack(true);
             }

@@ -3,28 +3,32 @@ using Microsoft.Extensions.Logging;
 using RabbitMQ.Abstraction.Interfaces;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 using RabbitMQ.Abstraction.Serialization.Interfaces;
+using RabbitMQ.Client;
 
 namespace RabbitMQ.Abstraction.Messaging
 {
     public class RabbitMQBatchConsumer<T> : AbstractRabbitMQConsumer where T : class
     {
         private readonly IBatchProcessingWorker<T> _batchProcessingWorker;
+        private readonly ILogger _logger;
 
-        public RabbitMQBatchConsumer(RabbitMQConnectionPool connectionPool, string queueName, IBatchProcessingWorker<T> batchProcessingWorker, ISerializer serializer = null, ILogger logger = null, IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null) 
-            : base(connectionPool, queueName, serializer, logger, consumerCountManager, messageRejectionHandler)
+        public RabbitMQBatchConsumer(ILogger logger, ConnectionFactory connectionFactory, IConnection connection, IConnection connectionPublisher, string queueName, IBatchProcessingWorker<T> batchProcessingWorker, ISerializer serializer = null, IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null) 
+            : base(connectionFactory, connection, connectionPublisher, queueName, serializer, logger, consumerCountManager, messageRejectionHandler)
         {
             _batchProcessingWorker = batchProcessingWorker;
+            _logger = logger;
         }
 
         protected override async Task<IQueueConsumerWorker> CreateNewConsumerWorkerAsync()
         {
             var newConsumerWorker = new RabbitMQBatchConsumerWorker<T>(
-                connection: await ConnectionPool.GetConnectionAsync().ConfigureAwait(false),
+                logger: _logger,
+                connection: ConnectionConsumer,
+                model: ConnectionConsumer.CreateModel(),
                 queueName: QueueName,
                 batchProcessingWorker: _batchProcessingWorker,
                 messageRejectionHandler: MessageRejectionHandler,
-                serializer: Serializer,
-                scaleCallbackFunc: TryScaleDown
+                serializer: Serializer
             );
 
             return newConsumerWorker;

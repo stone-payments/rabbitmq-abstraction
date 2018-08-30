@@ -5,6 +5,7 @@ using RabbitMQ.Abstraction.Messaging;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 using RabbitMQ.Abstraction.Serialization;
 using RabbitMQ.Abstraction.Serialization.Interfaces;
+using RabbitMQ.Client;
 
 namespace RabbitMQ.Abstraction
 {
@@ -29,10 +30,10 @@ namespace RabbitMQ.Abstraction
             _serializer = serializer ?? new JsonSerializer();
         }
 
-        public MessageDeserializationRejectionHandler(RabbitMQConnectionPool connectionPool, string exchangeName = "",
+        public MessageDeserializationRejectionHandler(ConnectionFactory connectionFactory, string exchangeName = "",
             string rejectionRoutingKey = "RejectedMessages", ISerializer serializer = null)
         {
-            _rabbitMQClient = new RabbitMQClient(connectionPool, serializer);
+            _rabbitMQClient = new RabbitMQClient(connectionFactory, serializer);
             _exchangeName = exchangeName;
             _rejectionRoutingKey = exchangeName == "" ? DefaultRejectionQueueName : rejectionRoutingKey;
             _serializer = serializer ?? new JsonSerializer();

@@ -2,13 +2,16 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using RabbitMQ.Abstraction.Interfaces;
+using RabbitMQ.Client;
 
 namespace RabbitMQ.Abstraction.Messaging.Interfaces
 {
     public interface IQueueClient : IDisposable
     {
         Task PublishAsync<T>(string exchangeName, string routingKey, T content, byte? priority = null);
+        Task PublishAsync<T>(IModel model, string exchangeName, string routingKey, T content, byte? priority = null);
         Task BatchPublishAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList, byte? priority = null);
+        Task BatchPublishAsync<T>(IModel model, string exchangeName, string routingKey, IEnumerable<T> contentList, byte? priority = null);
         Task BatchPublishTransactionalAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList, byte? priority = null);
         Task DelayedPublishAsync<T>(string exchangeName, string routingKey, T content, TimeSpan delay, byte? priority = null);
 

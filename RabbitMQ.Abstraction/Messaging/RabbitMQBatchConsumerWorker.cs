@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using RabbitMQ.Abstraction.Exceptions;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 using RabbitMQ.Abstraction.Serialization.Interfaces;
@@ -13,25 +14,25 @@ namespace RabbitMQ.Abstraction.Messaging
     public class RabbitMQBatchConsumerWorker<T> : IQueueConsumerWorker where T : class
     {
         private readonly string _queueName;
+        private readonly ILogger _logger;
         private readonly IModel _model;
         private readonly ISerializer _serializer;
         private readonly IBatchProcessingWorker<T> _batchProcessingWorker;
         private readonly IMessageRejectionHandler _messageRejectionHandler;
-        private readonly Func<bool> _scaleCallbackFunc;
 
         public TimeSpan CheckAliveFrequency { get; set; }
 
-        public RabbitMQBatchConsumerWorker(IConnection connection, string queueName,
+        public RabbitMQBatchConsumerWorker(ILogger logger, IConnection connection, string queueName, IModel model,
             IBatchProcessingWorker<T> batchProcessingWorker, IMessageRejectionHandler messageRejectionHandler,
-            ISerializer serializer, Func<bool> scaleCallbackFunc)
+            ISerializer serializer)
         {
-            _model = connection.CreateModel();
+            _logger = logger;
+            _model = model;
             _model.BasicQos(0, batchProcessingWorker.GetBatchSize(), false);
             _queueName = queueName;
             _batchProcessingWorker = batchProcessingWorker;
             _messageRejectionHandler = messageRejectionHandler;
             _serializer = serializer;
-            _scaleCallbackFunc = scaleCallbackFunc;
             CheckAliveFrequency = new TimeSpan(0, 0, 10);
         }
 
@@ -110,13 +111,6 @@ namespace RabbitMQ.Abstraction.Messaging
                         //Rethrow caught Exception
                         throw;
                     }
-                }
-
-                //In the end of the consumption loop, check if scaleDown has been requested
-                if (_scaleCallbackFunc())
-                {
-                    //If so, break consumption loop to let the thread end gracefully
-                    break;
                 }
             }
 

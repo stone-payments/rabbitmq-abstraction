@@ -4,20 +4,21 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Abstraction.Interfaces;
+using RabbitMQ.Abstraction.Messaging;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 
 namespace RabbitMQ.Abstraction.ProcessingWorkers
 {
     public class AdvancedProcessingWorker<T> : AbstractAdvancedProcessingWorker<T> where T : class
     {
-        private readonly Action<T> _callbackAction;
+        private readonly Action<T, RabbitMQConsumerContext> _callbackAction;
 
         private readonly Action<IEnumerable<T>> _batchCallbackAction;
 
         private readonly ushort _batchSize;
 
-        public AdvancedProcessingWorker(IQueueConsumer consumer, Action<T> callbackAction, 
-            ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue, 
+        public AdvancedProcessingWorker(IQueueConsumer consumer, Action<T, RabbitMQConsumerContext> callbackAction,
+            ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, ILogger logger = null)
             : base(consumer, exceptionHandlingStrategy, invokeRetryCount, invokeRetryWaitMilliseconds, logger)
         {
@@ -33,7 +34,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             _batchSize = batchSize;
         }
 
-        public AdvancedProcessingWorker(IQueueClient queueClient, string queueName, Action<T> callbackAction,
+        public AdvancedProcessingWorker(IQueueClient queueClient, string queueName, Action<T, RabbitMQConsumerContext> callbackAction,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0,
             IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null,
@@ -57,12 +58,12 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             _batchSize = batchSize;
         }
 
-        public static async Task<AdvancedProcessingWorker<T>> CreateAndStartAsync(IQueueConsumer consumer, 
-            Action<T> callbackAction, CancellationToken cancellationToken,
+        public static async Task<AdvancedProcessingWorker<T>> CreateAndStartAsync(IQueueConsumer consumer,
+            Action<T, RabbitMQConsumerContext> callbackAction, CancellationToken cancellationToken,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, ILogger logger = null)
         {
-            var instance = new AdvancedProcessingWorker<T>(consumer, callbackAction, exceptionHandlingStrategy, 
+            var instance = new AdvancedProcessingWorker<T>(consumer, callbackAction, exceptionHandlingStrategy,
                 invokeRetryCount, invokeRetryWaitMilliseconds, logger);
 
             await instance.StartAsync(cancellationToken).ConfigureAwait(false);
@@ -71,7 +72,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
         }
 
         public static async Task<AdvancedProcessingWorker<T>> CreateAndStartAsync(IQueueConsumer consumer,
-            Action<IEnumerable<T>> batchCallbackAction, ushort batchSize, CancellationToken cancellationToken, 
+            Action<IEnumerable<T>> batchCallbackAction, ushort batchSize, CancellationToken cancellationToken,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0, ILogger logger = null)
         {
@@ -84,7 +85,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
         }
 
         public static async Task<AdvancedProcessingWorker<T>> CreateAndStartAsync(IQueueClient queueClient,
-            string queueName, Action<T> callbackAction, CancellationToken cancellationToken,
+            string queueName, Action<T, RabbitMQConsumerContext> callbackAction, CancellationToken cancellationToken,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
             int invokeRetryCount = 1, int invokeRetryWaitMilliseconds = 0,
             IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null,
@@ -116,17 +117,17 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             return instance;
         }
 
-        public Task<Task> StartAsync(CancellationToken cancellationToken)
+        public Task StartAsync(CancellationToken cancellationToken)
         {
             return StartAsync(cancellationToken, _batchCallbackAction != null);
         }
 
-        protected override Task<bool> TryInvokeAsync(T message, List<Exception> exceptions, 
+        protected override Task<bool> TryInvokeAsync(T message, RabbitMQConsumerContext consumerContext, List<Exception> exceptions,
             CancellationToken cancellationToken)
         {
             try
             {
-                _callbackAction(message);
+                _callbackAction(message, consumerContext);
 
                 return Task.FromResult(true);
             }

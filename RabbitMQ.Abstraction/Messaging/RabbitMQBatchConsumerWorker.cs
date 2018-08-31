@@ -22,7 +22,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public TimeSpan CheckAliveFrequency { get; set; }
 
-        public RabbitMQBatchConsumerWorker(ILogger logger, IConnection connection, string queueName, IModel model,
+        public RabbitMQBatchConsumerWorker(ILogger logger, RabbitMQConnection connection, string queueName, IModel model,
             IBatchProcessingWorker<T> batchProcessingWorker, IMessageRejectionHandler messageRejectionHandler,
             ISerializer serializer)
         {

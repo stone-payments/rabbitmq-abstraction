@@ -290,7 +290,7 @@ namespace RabbitMQ.Abstraction.Messaging
         {
             return Task.Factory.StartNew(() =>
             {
-                _modelPublisher.QueueDeclare(queueName, durable, exclusive, autoDelete, arguments);
+                _rabbitMQConnectionManager.ConnectionByName("publisher").CreateModel(false).Model.QueueDeclare(queueName, durable, exclusive, autoDelete, arguments);
             });
         }
 
@@ -314,7 +314,7 @@ namespace RabbitMQ.Abstraction.Messaging
         {
             return Task.Factory.StartNew(() =>
             {
-                _modelPublisher.QueueBind(queueName, exchangeName, routingKey);
+                _rabbitMQConnectionManager.ConnectionByName("publisher").CreateModel(false).QueueBind(queueName, exchangeName, routingKey);
             });
         }
 

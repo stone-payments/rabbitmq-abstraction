@@ -4,7 +4,6 @@ using RabbitMQ.Abstraction.Interfaces;
 using RabbitMQ.Abstraction.Messaging.Interfaces;
 using RabbitMQ.Abstraction.Serialization.Interfaces;
 using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -23,31 +22,36 @@ namespace RabbitMQ.Abstraction.Messaging
 
         private readonly ILogger _logger;
 
-        private readonly IConnection _connectionPublisher;
-
-        private readonly IConnection _connectionConsumer;
-
-        private readonly IModel _modelPublisher;
-
         private readonly ConnectionFactory _connectionFactory;
 
         private readonly HttpClient _httpClient;
 
         private static readonly object ModelPublisherLock = new object();
 
+        private readonly RabbitMQConnectionManager _rabbitMQConnectionManager;
+
+        private readonly RabbitMQModel _modelPublisher;
+
+        public bool ConnectionPerQueue { get; set; }
+
         private readonly Regex _connectionStringPattern =
             new Regex(@"^(?<user>.+):(?<password>.+)@(?<host>.+):(?<port>[0-9]{1,5})/(?<vhost>.+)$");
 
-        ///  <summary>
-        /// 
-        ///  </summary>
-        ///  <param name="connectionString">Format {user}:{password}@{host}:{port}/{virtualHost}</param>
-        ///  <param name="serializer"></param>
-        ///  <param name="logger"></param>
-        /// <param name="connectionPoolSize"></param>
-        /// <param name="modelPoolSize"></param>
+        public RabbitMQClient(bool connectionPerQueue)
+        {
+            ConnectionPerQueue = connectionPerQueue;
+        }
+
+        ///   <summary>
+        ///
+        ///   </summary>
+        /// <param name="connectionString">Format {user}:{password}@{host}:{port}/{virtualHost}</param>
+        /// <param name="connectionPerQueue"></param>
+        /// <param name="serializer"></param>
+        /// <param name="logger"></param>
         /// <param name="heartbeat"></param>
-        public RabbitMQClient(string connectionString, ISerializer serializer = null, ILogger logger = null, uint connectionPoolSize = 1, uint modelPoolSize = 1, ushort heartbeat = 60)
+        public RabbitMQClient(string connectionString, ISerializer serializer = null, ILogger logger = null, ushort heartbeat = 60, bool connectionPerQueue = true)
+            : this(connectionPerQueue)
         {
             var match = _connectionStringPattern.Match(connectionString);
             if (!match.Success)
@@ -64,19 +68,18 @@ namespace RabbitMQ.Abstraction.Messaging
                 RequestedHeartbeat = heartbeat,
             };
 
-            _connectionPublisher = _connectionFactory.CreateConnection();
-            _connectionConsumer = _connectionFactory.CreateConnection();
-            _modelPublisher = _connectionPublisher.CreateModel();
+            _rabbitMQConnectionManager = new RabbitMQConnectionManager(_connectionFactory, logger);
+            _rabbitMQConnectionManager.CreateConnection("publisher");
+            _modelPublisher = _rabbitMQConnectionManager.ConnectionByName("publisher").CreateModel(false);
             _serializer = serializer ?? new JsonSerializer();
             _logger = logger;
 
             _httpClient = GetHttpClient(match.Groups["user"].Value, match.Groups["password"].Value, match.Groups["host"].Value, int.Parse(match.Groups["port"].Value));
-
-            SubscribeConnectionEvents();
         }
 
         public RabbitMQClient(string hostName, int port, string userName, string password, string virtualHost,
-            ISerializer serializer = null, ILogger logger = null, uint connectionPoolSize = 1, uint modelPoolSize = 1, ushort heartbeat = 60)
+            ISerializer serializer = null, ILogger logger = null, ushort heartbeat = 60, bool connectionPerQueue = true)
+            : this(connectionPerQueue)
         {
             _connectionFactory = new ConnectionFactory
             {
@@ -89,115 +92,25 @@ namespace RabbitMQ.Abstraction.Messaging
                 RequestedHeartbeat = heartbeat,
             };
 
-            _connectionPublisher = _connectionFactory.CreateConnection();
-            _connectionConsumer = _connectionFactory.CreateConnection();
-            _modelPublisher = _connectionPublisher.CreateModel();
+            _rabbitMQConnectionManager = new RabbitMQConnectionManager(_connectionFactory, logger);
+            _rabbitMQConnectionManager.CreateConnection("publisher");
+            _modelPublisher = _rabbitMQConnectionManager.ConnectionByName("publisher").CreateModel(false);
             _serializer = serializer ?? new JsonSerializer();
             _logger = logger;
 
             _httpClient = GetHttpClient(userName, password, hostName, port);
-
-            SubscribeConnectionEvents();
         }
 
-        public RabbitMQClient(ConnectionFactory connectionFactory, ISerializer serializer = null, ILogger logger = null)
+        public RabbitMQClient(ConnectionFactory connectionFactory, ISerializer serializer = null, ILogger logger = null, bool connectionPerQueue = true)
+            : this(connectionPerQueue)
         {
-            _connectionPublisher = _connectionFactory.CreateConnection();
-            _connectionConsumer = _connectionFactory.CreateConnection();
-            _modelPublisher = _connectionPublisher.CreateModel();
+            _rabbitMQConnectionManager = new RabbitMQConnectionManager(connectionFactory, logger);
+            _rabbitMQConnectionManager.CreateConnection("publisher");
+            _modelPublisher = _rabbitMQConnectionManager.ConnectionByName("publisher").CreateModel(false);
             _serializer = serializer ?? new JsonSerializer();
             _logger = logger;
 
             _httpClient = GetHttpClient(connectionFactory.UserName, connectionFactory.Password, connectionFactory.HostName, connectionFactory.Port);
-
-            SubscribeConnectionEvents();
-        }
-
-        private void SubscribeConnectionEvents()
-        {
-            _connectionPublisher.ConnectionShutdown += Connection_ConnectionShutdown;
-            _connectionPublisher.ConnectionRecoveryError += Connection_ConnectionRecoveryError;
-            _connectionPublisher.CallbackException += Connection_CallbackException;
-            _connectionPublisher.ConnectionBlocked += Connection_ConnectionBlocked;
-            _connectionPublisher.ConnectionUnblocked += Connection_ConnectionUnblocked;
-            _connectionPublisher.RecoverySucceeded += Connection_RecoverySucceeded;
-
-            _connectionConsumer.ConnectionShutdown += Connection_ConnectionShutdown;
-            _connectionConsumer.ConnectionRecoveryError += Connection_ConnectionRecoveryError;
-            _connectionConsumer.CallbackException += Connection_CallbackException;
-            _connectionConsumer.ConnectionBlocked += Connection_ConnectionBlocked;
-            _connectionConsumer.ConnectionUnblocked += Connection_ConnectionUnblocked;
-            _connectionConsumer.RecoverySucceeded += Connection_RecoverySucceeded;
-
-            _modelPublisher.CallbackException += ModelPublisher_CallbackException;
-            _modelPublisher.BasicRecoverOk += ModelPublisher_BasicRecoverOk;
-            _modelPublisher.ModelShutdown += ModelPublisher_ModelShutdown;
-        }
-
-        private void UnsubscribeConnectionEvents()
-        {
-            _connectionPublisher.ConnectionShutdown -= Connection_ConnectionShutdown;
-            _connectionPublisher.ConnectionRecoveryError -= Connection_ConnectionRecoveryError;
-            _connectionPublisher.CallbackException -= Connection_CallbackException;
-            _connectionPublisher.ConnectionBlocked -= Connection_ConnectionBlocked;
-            _connectionPublisher.ConnectionUnblocked -= Connection_ConnectionUnblocked;
-            _connectionPublisher.RecoverySucceeded -= Connection_RecoverySucceeded;
-
-            _connectionConsumer.ConnectionShutdown -= Connection_ConnectionShutdown;
-            _connectionConsumer.ConnectionRecoveryError -= Connection_ConnectionRecoveryError;
-            _connectionConsumer.CallbackException -= Connection_CallbackException;
-            _connectionConsumer.ConnectionBlocked -= Connection_ConnectionBlocked;
-            _connectionConsumer.ConnectionUnblocked -= Connection_ConnectionUnblocked;
-            _connectionConsumer.RecoverySucceeded -= Connection_RecoverySucceeded;
-
-            _modelPublisher.CallbackException -= ModelPublisher_CallbackException;
-            _modelPublisher.BasicRecoverOk -= ModelPublisher_BasicRecoverOk;
-            _modelPublisher.ModelShutdown -= ModelPublisher_ModelShutdown;
-        }
-
-        private void ModelPublisher_ModelShutdown(object sender, ShutdownEventArgs e)
-        {
-            _logger?.LogInformation($"RabbitMQModel Shutdown. Cause: {e.Cause} ReplyText: {e.ReplyText} ");
-        }
-
-        private void ModelPublisher_BasicRecoverOk(object sender, EventArgs e)
-        {
-            _logger?.LogInformation("RabbitMQModel Basic Recover Ok.");
-        }
-
-        private void ModelPublisher_CallbackException(object sender, CallbackExceptionEventArgs e)
-        {
-            _logger?.LogError(e.Exception, $"RabbitMQModel Shutdown. Message: {e.Exception.Message}{Environment.NewLine}StackTrace: {e.Exception.StackTrace} ");
-        }
-
-        private void Connection_RecoverySucceeded(object sender, EventArgs e)
-        {
-            _logger.LogInformation($"RabbitMQAbstraction[{(sender == _connectionPublisher ? "publisher connection" : "consumer connection")}] Connection Recovery Succeeded");
-        }
-
-        private void Connection_ConnectionUnblocked(object sender, EventArgs e)
-        {
-            _logger?.LogInformation($"RabbitMQAbstraction[{(sender == _connectionPublisher ? "publisher connection" : "consumer connection")}] Connection Unblocked");
-        }
-
-        private void Connection_ConnectionBlocked(object sender, Client.Events.ConnectionBlockedEventArgs e)
-        {
-            _logger?.LogInformation($"RabbitMQAbstraction[{(sender == _connectionPublisher ? "publisher connection" : "consumer connection")}] Connection Blocked");
-        }
-
-        private void Connection_CallbackException(object sender, Client.Events.CallbackExceptionEventArgs e)
-        {
-            _logger?.LogError(e.Exception, $"RabbitMQAbstraction[{(sender == _connectionPublisher ? "publisher connection" : "consumer connection")}] Connection CallbackException. Message: {e.Exception.Message}{Environment.NewLine}Stacktrace: {e.Exception.StackTrace}");
-        }
-
-        private void Connection_ConnectionRecoveryError(object sender, Client.Events.ConnectionRecoveryErrorEventArgs e)
-        {
-            _logger?.LogInformation($"RabbitMQAbstraction[{(sender == _connectionPublisher ? "publisher connection" : "consumer connection")}] Connection Recovery Error. Message: {e.Exception.Message}{Environment.NewLine}Stacktrace: {e.Exception.StackTrace}");
-        }
-
-        private void Connection_ConnectionShutdown(object sender, ShutdownEventArgs e)
-        {
-            _logger?.LogInformation($"RabbitMQAbstraction[{(sender == _connectionPublisher ? "publisher connection" : "consumer connection")}] Connection Shutdown. Cause: {e.Cause} ReplyText: {e.ReplyText}");
         }
 
         private static HttpClient GetHttpClient(string username, string password, string host, int port)
@@ -304,39 +217,36 @@ namespace RabbitMQ.Abstraction.Messaging
         {
             return Task.Factory.StartNew(() =>
             {
-                using (var model = _connectionPublisher.CreateModel())
+                try
                 {
-                    try
+                    _modelPublisher.TxSelect();
+
+                    var props = _modelPublisher.CreateBasicProperties();
+                    props.DeliveryMode = 2;
+
+                    if (priority != null)
                     {
-                        model.TxSelect();
-
-                        var props = model.CreateBasicProperties();
-                        props.DeliveryMode = 2;
-
-                        if (priority != null)
-                        {
-                            props.Priority = priority.Value;
-                        }
-
-                        foreach (var content in contentList)
-                        {
-                            var serializedContent = _serializer.Serialize(content);
-
-                            var payload = Encoding.UTF8.GetBytes(serializedContent);
-                            model.BasicPublish(exchangeName, routingKey, props, payload);
-                        }
-
-                        model.TxCommit();
+                        props.Priority = priority.Value;
                     }
-                    catch (Exception)
+
+                    foreach (var content in contentList)
                     {
-                        if (model.IsOpen)
-                        {
-                            model.TxRollback();
-                        }
+                        var serializedContent = _serializer.Serialize(content);
 
-                        throw;
+                        var payload = Encoding.UTF8.GetBytes(serializedContent);
+                        _modelPublisher.BasicPublish(exchangeName, routingKey, props, payload);
                     }
+
+                    _modelPublisher.TxCommit();
+                }
+                catch (Exception)
+                {
+                    if (_modelPublisher.IsOpen)
+                    {
+                        _modelPublisher.TxRollback();
+                    }
+
+                    throw;
                 }
             });
         }
@@ -344,37 +254,35 @@ namespace RabbitMQ.Abstraction.Messaging
         public async Task DelayedPublishAsync<T>(string exchangeName, string routingKey, T content, TimeSpan delay, byte? priority = null)
         {
             var serializedContent = _serializer.Serialize(content);
-            using (var model = _connectionPublisher.CreateModel())
+
+            var props = _modelPublisher.CreateBasicProperties();
+            props.DeliveryMode = 2;
+
+            if (priority != null)
             {
-                var props = model.CreateBasicProperties();
-                props.DeliveryMode = 2;
+                props.Priority = priority.Value;
+            }
 
-                if (priority != null)
-                {
-                    props.Priority = priority.Value;
-                }
+            props.Expiration = delay.TotalMilliseconds.ToString(CultureInfo.InvariantCulture);
+            var payload = Encoding.UTF8.GetBytes(serializedContent);
 
-                props.Expiration = delay.TotalMilliseconds.ToString(CultureInfo.InvariantCulture);
-                var payload = Encoding.UTF8.GetBytes(serializedContent);
+            var queueName = $"delayed.{routingKey}@{exchangeName}.{Guid.NewGuid()}";
 
-                var queueName = $"delayed.{routingKey}@{exchangeName}.{Guid.NewGuid()}";
-
-                var queueArguments = new Dictionary<string, object>
+            var queueArguments = new Dictionary<string, object>
                 {
                     {"x-dead-letter-exchange", exchangeName},
                     {"x-dead-letter-routing-key", routingKey},
                     {"x-expires", (long) delay.Add(TimeSpan.FromSeconds(1)).TotalMilliseconds},
                 };
 
-                if (priority != null)
-                {
-                    queueArguments.Add("x-max-priority", priority);
-                }
-
-                await QueueDeclareAsync(queueName, arguments: queueArguments).ConfigureAwait(false);
-
-                model.BasicPublish("", queueName, props, payload);
+            if (priority != null)
+            {
+                queueArguments.Add("x-max-priority", priority);
             }
+
+            await QueueDeclareAsync(queueName, arguments: queueArguments).ConfigureAwait(false);
+
+            _modelPublisher.BasicPublish("", queueName, props, payload);
         }
 
         public Task QueueDeclareAsync(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false,
@@ -382,10 +290,7 @@ namespace RabbitMQ.Abstraction.Messaging
         {
             return Task.Factory.StartNew(() =>
             {
-                using (var model = _connectionPublisher.CreateModel())
-                {
-                    model.QueueDeclare(queueName, durable, exclusive, autoDelete, arguments);
-                }
+                _rabbitMQConnectionManager.ConnectionByName("publisher").CreateModel(false).Model.QueueDeclare(queueName, durable, exclusive, autoDelete, arguments);
             });
         }
 
@@ -393,10 +298,7 @@ namespace RabbitMQ.Abstraction.Messaging
         {
             return Task.Factory.StartNew(() =>
             {
-                using (var model = _connectionPublisher.CreateModel())
-                {
-                    model.QueueDeclarePassive(queueName);
-                }
+                _modelPublisher.QueueDeclarePassive(queueName);
             });
         }
 
@@ -404,10 +306,7 @@ namespace RabbitMQ.Abstraction.Messaging
         {
             return Task.Factory.StartNew(() =>
             {
-                using (var model = _connectionPublisher.CreateModel())
-                {
-                    return model.QueueDelete(queueName);
-                }
+                return _modelPublisher.QueueDelete(queueName);
             });
         }
 
@@ -415,10 +314,7 @@ namespace RabbitMQ.Abstraction.Messaging
         {
             return Task.Factory.StartNew(() =>
             {
-                using (var model = _connectionPublisher.CreateModel())
-                {
-                    model.QueueBind(queueName, exchangeName, routingKey);
-                }
+                _rabbitMQConnectionManager.ConnectionByName("publisher").CreateModel(false).QueueBind(queueName, exchangeName, routingKey);
             });
         }
 
@@ -426,16 +322,13 @@ namespace RabbitMQ.Abstraction.Messaging
         {
             return Task.Factory.StartNew(() =>
             {
-                using (var model = _connectionPublisher.CreateModel())
+                if (passive)
                 {
-                    if (passive)
-                    {
-                        model.ExchangeDeclarePassive(exchangeName);
-                    }
-                    else
-                    {
-                        model.ExchangeDeclare(exchangeName, ExchangeType.Topic, true);
-                    }
+                    _modelPublisher.ExchangeDeclarePassive(exchangeName);
+                }
+                else
+                {
+                    _modelPublisher.ExchangeDeclare(exchangeName, ExchangeType.Topic, true);
                 }
             });
         }
@@ -444,19 +337,16 @@ namespace RabbitMQ.Abstraction.Messaging
         {
             return Task.Factory.StartNew(() =>
             {
-                using (var model = _connectionPublisher.CreateModel())
+                try
                 {
-                    try
-                    {
-                        model.QueueDeclarePassive(queueName);
-                    }
-                    catch (Exception)
-                    {
-                        return false;
-                    }
-
-                    return true;
+                    _modelPublisher.QueueDeclarePassive(queueName);
                 }
+                catch (Exception)
+                {
+                    return false;
+                }
+
+                return true;
             });
         }
 
@@ -473,11 +363,8 @@ namespace RabbitMQ.Abstraction.Messaging
         {
             return Task.Factory.StartNew(() =>
             {
-                using (var model = _connectionPublisher.CreateModel())
-                {
-                    var returnValue = model.QueuePurge(queueName);
-                    return returnValue;
-                }
+                var returnValue = _modelPublisher.QueuePurge(queueName);
+                return returnValue;
             });
         }
 
@@ -485,12 +372,9 @@ namespace RabbitMQ.Abstraction.Messaging
         {
             return Task.Factory.StartNew(() =>
             {
-                using (var model = _connectionPublisher.CreateModel())
-                {
-                    var queueDeclareOk = model.QueueDeclarePassive(queueName);
+                var queueDeclareOk = _modelPublisher.QueueDeclarePassive(queueName);
 
-                    return queueDeclareOk.MessageCount;
-                }
+                return queueDeclareOk.MessageCount;
             });
         }
 
@@ -498,12 +382,9 @@ namespace RabbitMQ.Abstraction.Messaging
         {
             return Task.Factory.StartNew(() =>
             {
-                using (var model = _connectionPublisher.CreateModel())
-                {
-                    var queueDeclareOk = model.QueueDeclarePassive(queueName);
+                var queueDeclareOk = _modelPublisher.QueueDeclarePassive(queueName);
 
-                    return queueDeclareOk.ConsumerCount;
-                }
+                return queueDeclareOk.ConsumerCount;
             });
         }
 
@@ -548,12 +429,16 @@ namespace RabbitMQ.Abstraction.Messaging
             ushort prefetchCount = 1)
             where T : class
         {
+            RabbitMQConnection connectionConsumer = ConnectionPerQueue
+                ? _rabbitMQConnectionManager.CreateConnection($"consumer: {queueName}")
+                : _rabbitMQConnectionManager.ConnectionByName("consumer") ?? _rabbitMQConnectionManager.CreateConnection("consumer");
+
+            var connectionPublisher = _rabbitMQConnectionManager.ConnectionByName("publisher");
+
             return new RabbitMQConsumer<T>(
                 queueClient: this,
-                //connection: _connectionFactory.CreateConnection(),
-                //connectionPublisher: _connectionFactory.CreateConnection(),
-                connectionConsumer: _connectionConsumer,
-                connectionPublisher: _connectionPublisher,
+                connectionConsumer: connectionConsumer,
+                connectionPublisher: connectionPublisher,
                 connectionFactory: _connectionFactory,
                 queueName: queueName,
                 serializer: _serializer,
@@ -568,11 +453,15 @@ namespace RabbitMQ.Abstraction.Messaging
             IBatchProcessingWorker<T> batchProcessingWorker, IMessageRejectionHandler messageRejectionHandler)
             where T : class
         {
+            RabbitMQConnection connectionConsumer = ConnectionPerQueue
+                ? _rabbitMQConnectionManager.CreateConnection($"consumer: {queueName}")
+                : _rabbitMQConnectionManager.ConnectionByName("consumer") ?? _rabbitMQConnectionManager.CreateConnection("consumer");
+
+            var connectionPublisher = _rabbitMQConnectionManager.ConnectionByName("publisher");
+
             return new RabbitMQBatchConsumer<T>(
-                //connection: _connectionFactory.CreateConnection(),
-                //connectionPublisher: _connectionFactory.CreateConnection(),
-                connection: _connectionConsumer,
-                connectionPublisher: _connectionPublisher,
+                connection: connectionConsumer,
+                connectionPublisher: connectionPublisher,
                 connectionFactory: _connectionFactory,
                 queueName: queueName,
                 serializer: _serializer,
@@ -584,9 +473,7 @@ namespace RabbitMQ.Abstraction.Messaging
 
         public void Dispose()
         {
-            UnsubscribeConnectionEvents();
-            _connectionConsumer?.Dispose();
-            _connectionPublisher?.Dispose();
+            _rabbitMQConnectionManager.Dispose();
         }
     }
 }

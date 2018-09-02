@@ -12,7 +12,7 @@ namespace RabbitMQ.Abstraction.Messaging
         private readonly IBatchProcessingWorker<T> _batchProcessingWorker;
         private readonly ILogger _logger;
 
-        public RabbitMQBatchConsumer(ILogger logger, ConnectionFactory connectionFactory, IConnection connection, IConnection connectionPublisher, string queueName, IBatchProcessingWorker<T> batchProcessingWorker, ISerializer serializer = null, IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null) 
+        public RabbitMQBatchConsumer(ILogger logger, ConnectionFactory connectionFactory, RabbitMQConnection connection, RabbitMQConnection connectionPublisher, string queueName, IBatchProcessingWorker<T> batchProcessingWorker, ISerializer serializer = null, IConsumerCountManager consumerCountManager = null, IMessageRejectionHandler messageRejectionHandler = null) 
             : base(connectionFactory, connection, connectionPublisher, queueName, serializer, logger, consumerCountManager, messageRejectionHandler)
         {
             _batchProcessingWorker = batchProcessingWorker;
@@ -24,7 +24,7 @@ namespace RabbitMQ.Abstraction.Messaging
             var newConsumerWorker = new RabbitMQBatchConsumerWorker<T>(
                 logger: _logger,
                 connection: ConnectionConsumer,
-                model: ConnectionConsumer.CreateModel(),
+                model: ConnectionConsumer.CreateModel(true).Model,
                 queueName: QueueName,
                 batchProcessingWorker: _batchProcessingWorker,
                 messageRejectionHandler: MessageRejectionHandler,

@@ -13,9 +13,9 @@ namespace RabbitMQ.Abstraction.Messaging
 {
     public abstract class AbstractRabbitMQConsumer : IQueueConsumer
     {
-        protected readonly IConnection ConnectionConsumer;
+        protected readonly RabbitMQConnection ConnectionConsumer;
 
-        protected readonly IConnection ConnectionPublisher;
+        protected readonly RabbitMQConnection ConnectionPublisher;
 
         protected readonly ConnectionFactory _connectionFactory;
 
@@ -33,12 +33,10 @@ namespace RabbitMQ.Abstraction.Messaging
 
         protected readonly ushort PrefetchCount;
 
-        protected readonly IModel _model;
-
         protected AbstractRabbitMQConsumer(
             ConnectionFactory connectionFactory,
-            IConnection connectionConsumer,
-            IConnection connectionPublisher,
+            RabbitMQConnection connectionConsumer,
+            RabbitMQConnection connectionPublisher,
             string queueName,
             ISerializer serializer = null,
             ILogger logger = null,
@@ -49,7 +47,6 @@ namespace RabbitMQ.Abstraction.Messaging
             _connectionFactory = connectionFactory;
             ConnectionConsumer = connectionConsumer;
             ConnectionPublisher = connectionPublisher;
-            _model = connectionPublisher.CreateModel();
 
             QueueName = queueName;
             Serializer = serializer ?? new JsonSerializer();

@@ -126,11 +126,13 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
                 {
                     return ExceptionHandlingStrategy.Retry;
                 }
-                else if (exceptions.Last() is QueuingRequeueException || exceptions.Last().InnerException is QueuingRequeueException)
+
+                if (exceptions.Last() is QueuingRequeueException || exceptions.Last().InnerException is QueuingRequeueException)
                 {
                     return ExceptionHandlingStrategy.Requeue;
                 }
-                else if (exceptions.Last() is QueuingDiscardException || exceptions.Last().InnerException is QueuingDiscardException)
+
+                if (exceptions.Last() is QueuingDiscardException || exceptions.Last().InnerException is QueuingDiscardException)
                 {
                     return ExceptionHandlingStrategy.Discard;
                 }
@@ -154,9 +156,17 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
                 {
                     return true;
                 }
-                else if (strategyByExceptions == ExceptionHandlingStrategy.Discard)
+
+                if (strategyByExceptions == ExceptionHandlingStrategy.Discard)
                 {
                     return false;
+                }
+            }
+            else
+            {
+                if (exceptions.Any())
+                {
+                    Logger.LogError("Strategy is null in should retry!");
                 }
             }
 

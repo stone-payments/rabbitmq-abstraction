@@ -69,6 +69,8 @@ namespace RabbitMQ.Abstraction.Messaging
                         }
                         catch (Exception exception)
                         {
+                            _logger?.LogError(exception, $"{exception.Message}{Environment.NewLine}{exception.StackTrace}");
+
                             var deserializationException = new DeserializationException("Unable to deserialize data.", exception)
                             {
                                 SerializedDataString = messageBody,
@@ -101,6 +103,8 @@ namespace RabbitMQ.Abstraction.Messaging
                     }
                     catch (Exception e)
                     {
+                        _logger?.LogError(e, $"{e.Message}{Environment.NewLine}{e.StackTrace}");
+
                         //If something went wrong with message processing and message hasn't been acknoledged yet
                         if (!batchFeedbackSender.HasAcknoledged)
                         {

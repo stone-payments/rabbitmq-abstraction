@@ -19,6 +19,8 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
 
         private readonly ushort _batchSize;
 
+        private readonly ILogger _logger;
+
         public AdvancedAsyncProcessingWorker(IQueueConsumer consumer,
             Func<T, RabbitMQConsumerContext, CancellationToken, Task> callbackFunc, TimeSpan processingTimeout,
             ExceptionHandlingStrategy exceptionHandlingStrategy = ExceptionHandlingStrategy.Requeue,
@@ -27,6 +29,8 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
         {
             _callbackFunc = callbackFunc;
             _processingTimeout = processingTimeout;
+
+            _logger = logger;
         }
 
         public AdvancedAsyncProcessingWorker(IQueueConsumer consumer,
@@ -145,6 +149,11 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
                     tokenSource.CancelAfter(_processingTimeout);
 
                     await _callbackFunc(message, consumerContext, tokenSource.Token).ConfigureAwait(false);
+
+                    if (tokenSource.IsCancellationRequested)
+                    {
+                        _logger?.LogError($"Task cancelled after timeout: {_processingTimeout.Milliseconds} ms");
+                    }
                 }
 
                 return true;
@@ -171,6 +180,11 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
                     tokenSource.CancelAfter(_processingTimeout);
 
                     await _batchCallbackFunc(batch, tokenSource.Token).ConfigureAwait(false);
+
+                    if (tokenSource.IsCancellationRequested)
+                    {
+                        _logger?.LogError($"Task cancelled after timeout: {_processingTimeout.Milliseconds} ms");
+                    }
                 }
 
                 return true;

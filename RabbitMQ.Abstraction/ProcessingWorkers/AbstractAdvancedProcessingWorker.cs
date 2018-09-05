@@ -166,7 +166,7 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             {
                 if (exceptions.Any())
                 {
-                    Logger.LogError("Strategy is null in should retry!");
+                    Logger.LogError(exceptions.Last(), "Strategy is null in should retry!");
                 }
             }
 
@@ -188,9 +188,17 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
                 {
                     return true;
                 }
-                else if (strategyByExceptions == ExceptionHandlingStrategy.Discard)
+
+                if (strategyByExceptions == ExceptionHandlingStrategy.Discard)
                 {
                     return false;
+                }
+            }
+            else
+            {
+                if (exceptions.Any())
+                {
+                    Logger.LogError(exceptions.Last(), "Strategy is null in should requeue!");
                 }
             }
 

@@ -125,7 +125,7 @@ namespace RabbitMQ.Abstraction.Messaging
             };
         }
 
-        public Task PublishAsync<T>(string exchangeName, string routingKey, T content, byte? priority = null)
+        public Task PublishAsync<T>(string exchangeName, string routingKey, T content, byte? priority = null, TimeSpan? delay = null)
         {
             return Task.Factory.StartNew(() =>
             {
@@ -141,13 +141,18 @@ namespace RabbitMQ.Abstraction.Messaging
                         props.Priority = priority.Value;
                     }
 
+                    if (delay.HasValue)
+                    {
+                        props.Expiration = delay.Value.TotalMilliseconds.ToString(CultureInfo.InvariantCulture);
+                    }
+
                     var payload = Encoding.UTF8.GetBytes(serializedContent);
                     _modelPublisher.BasicPublish(exchangeName, routingKey, props, payload);
                 }
             });
         }
 
-        public Task PublishAsync<T>(IModel model, string exchangeName, string routingKey, T content, byte? priority = null)
+        public Task PublishAsync<T>(IModel model, string exchangeName, string routingKey, T content, byte? priority = null, TimeSpan? delay = null)
         {
             return Task.Factory.StartNew(() =>
             {
@@ -159,6 +164,11 @@ namespace RabbitMQ.Abstraction.Messaging
                 if (priority != null)
                 {
                     props.Priority = priority.Value;
+                }
+
+                if (delay.HasValue)
+                {
+                    props.Expiration = delay.Value.TotalMilliseconds.ToString(CultureInfo.InvariantCulture);
                 }
 
                 var payload = Encoding.UTF8.GetBytes(serializedContent);

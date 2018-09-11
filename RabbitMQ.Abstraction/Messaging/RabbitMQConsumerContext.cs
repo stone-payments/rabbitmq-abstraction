@@ -1,5 +1,6 @@
 ﻿using RabbitMQ.Abstraction.Messaging.Interfaces;
 using RabbitMQ.Client;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -16,9 +17,9 @@ namespace RabbitMQ.Abstraction.Messaging
             _queueClient = queueClient;
         }
 
-        public Task PublishAsync<T>(string exchangeName, string routingKey, T content, byte? priority = null)
+        public Task PublishAsync<T>(string exchangeName, string routingKey, T content, byte? priority = null, TimeSpan? delay = null)
         {
-            return _queueClient.PublishAsync(_model, exchangeName, routingKey, content, priority);
+            return _queueClient.PublishAsync(_model, exchangeName, routingKey, content, priority, delay);
         }
 
         public Task BatchPublishAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList,

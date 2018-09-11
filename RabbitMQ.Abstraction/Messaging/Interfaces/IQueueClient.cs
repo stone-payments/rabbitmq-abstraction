@@ -8,8 +8,8 @@ namespace RabbitMQ.Abstraction.Messaging.Interfaces
 {
     public interface IQueueClient : IDisposable
     {
-        Task PublishAsync<T>(string exchangeName, string routingKey, T content, byte? priority = null);
-        Task PublishAsync<T>(IModel model, string exchangeName, string routingKey, T content, byte? priority = null);
+        Task PublishAsync<T>(string exchangeName, string routingKey, T content, byte? priority = null, TimeSpan? delay = null);
+        Task PublishAsync<T>(IModel model, string exchangeName, string routingKey, T content, byte? priority = null, TimeSpan? delay = null);
         Task BatchPublishAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList, byte? priority = null);
         Task BatchPublishAsync<T>(IModel model, string exchangeName, string routingKey, IEnumerable<T> contentList, byte? priority = null);
         Task BatchPublishTransactionalAsync<T>(string exchangeName, string routingKey, IEnumerable<T> contentList, byte? priority = null);

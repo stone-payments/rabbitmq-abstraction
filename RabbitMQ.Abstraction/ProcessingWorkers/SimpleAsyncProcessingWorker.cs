@@ -19,12 +19,16 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
 
         private readonly ushort _batchSize;
 
+        private readonly ILogger _logger;
+
         public SimpleAsyncProcessingWorker(IQueueConsumer consumer, Func<T, RabbitMQConsumerContext, CancellationToken, Task> callbackFunc,
             TimeSpan processingTimeout, ILogger logger = null)
             : base(consumer, logger)
         {
             _callbackFunc = callbackFunc;
             _processingTimeout = processingTimeout;
+
+            _logger = logger;
         }
 
         public SimpleAsyncProcessingWorker(IQueueConsumer consumer, Func<IEnumerable<T>, CancellationToken, Task> batchCallbackFunc,
@@ -124,12 +128,23 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
                     tokenSource.CancelAfter(_processingTimeout);
 
                     await _callbackFunc(message, consumerContext, tokenSource.Token).ConfigureAwait(false);
+
+                    if (tokenSource.IsCancellationRequested)
+                    {
+                        _logger?.LogError($"Task cancelled after timeout: {_processingTimeout.Milliseconds} ms");
+                    }
                 }
 
                 feedbackSender.Ack();
             }
             catch (Exception e)
             {
+                _logger?.LogError(e, "Exception in OnMessageAsync for Simple Async Processing. Sending Nack with requeue. " +
+                                     $"{Environment.NewLine}" +
+                                     $"{e.Message}" +
+                                     $"{Environment.NewLine}" +
+                                     $"{e.StackTrace}");
+
                 feedbackSender.Nack(true);
             }
         }
@@ -148,12 +163,23 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
                     tokenSource.CancelAfter(_processingTimeout);
 
                     await _batchCallbackFunc(batch, tokenSource.Token).ConfigureAwait(false);
+
+                    if (tokenSource.IsCancellationRequested)
+                    {
+                        _logger?.LogError($"Task cancelled after timeout: {_processingTimeout.Milliseconds} ms");
+                    }
                 }
 
                 feedbackSender.Ack();
             }
             catch (Exception e)
             {
+                _logger?.LogError(e, "Exception in OnBatchAsync for Simple Async Processing. Sending Nack with requeue. " +
+                                     $"{Environment.NewLine}" +
+                                     $"{e.Message}" +
+                                     $"{Environment.NewLine}" +
+                                     $"{e.StackTrace}");
+
                 feedbackSender.Nack(true);
             }
         }

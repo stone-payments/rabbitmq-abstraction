@@ -249,8 +249,10 @@ namespace RabbitMQ.Abstraction.Messaging
 
                     _modelPublisher.TxCommit();
                 }
-                catch (Exception)
+                catch (Exception e)
                 {
+                    _logger?.LogError(e, $"{e.Message}{Environment.NewLine}{e.StackTrace}");
+
                     if (_modelPublisher.IsOpen)
                     {
                         _modelPublisher.TxRollback();
@@ -351,8 +353,10 @@ namespace RabbitMQ.Abstraction.Messaging
                 {
                     _modelPublisher.QueueDeclarePassive(queueName);
                 }
-                catch (Exception)
+                catch (Exception e)
                 {
+                    _logger?.LogError(e, $"{e.Message}{Environment.NewLine}{e.StackTrace}");
+
                     return false;
                 }
 

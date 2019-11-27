@@ -17,10 +17,14 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
 
         private readonly ushort _batchSize;
 
+        private readonly ILogger _logger;
+
         public SimpleProcessingWorker(IQueueConsumer consumer, Action<T, RabbitMQConsumerContext> callbackAction, ILogger logger = null)
             : base(consumer, logger)
         {
             _callbackAction = callbackAction;
+
+            _logger = logger;
         }
 
         public SimpleProcessingWorker(IQueueConsumer consumer, Action<IEnumerable<T>> batchCallbackAction, ushort batchSize, ILogger logger = null)
@@ -111,6 +115,12 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             }
             catch (Exception e)
             {
+                _logger?.LogError(e, "Exception in OnMessageAsync for Simple Processing. Sending Nack with requeue." +
+                                     $"{Environment.NewLine}" +
+                                     $"{e.Message}" +
+                                     $"{Environment.NewLine}" +
+                                     $"{e.StackTrace}");
+
                 feedbackSender.Nack(true);
             }
 
@@ -131,6 +141,12 @@ namespace RabbitMQ.Abstraction.ProcessingWorkers
             }
             catch (Exception e)
             {
+                _logger?.LogError(e, "Exception in OnBatchAsync for Simple Processing. Sending Nack with requeue." +
+                                     $"{Environment.NewLine}" +
+                                     $"{e.Message}" +
+                                     $"{Environment.NewLine}" +
+                                     $"{e.StackTrace}");
+
                 feedbackSender.Nack(true);
             }
 
